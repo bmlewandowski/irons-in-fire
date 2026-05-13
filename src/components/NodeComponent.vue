@@ -25,6 +25,11 @@ const goalStore = useGoalStore()
 const node = computed(() => nodeStore.nodes[props.nodeId])
 const goals = computed(() => goalStore.goalsForNode(props.nodeId))
 const isSelected = computed(() => nodeStore.selectedNodeId === props.nodeId)
+
+const roleCssClass = computed(() => {
+  const role = node.value?.roleLevel ?? ''
+  return 'role-' + role.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+})
 </script>
 
 <template>
@@ -42,10 +47,9 @@ const isSelected = computed(() => nodeStore.selectedNodeId === props.nodeId)
         @dragstart.stop="emit('drag-start', props.nodeId)"
         @dragend.stop="emit('drag-end', props.nodeId)"
       >⠿</button>
-      <div class="node-info">
+      <div class="node-info" :class="roleCssClass">
         <strong class="node-title">{{ node?.title }}</strong>
         <div class="node-owner">{{ node?.ownerName }}</div>
-        <div class="node-role">{{ node?.roleLevel === 'Custom' ? node.customRoleLabel : node?.roleLevel }}</div>
       </div>
     </div>
 
@@ -115,8 +119,7 @@ const isSelected = computed(() => nodeStore.selectedNodeId === props.nodeId)
   text-overflow: ellipsis;
 }
 
-.node-owner,
-.node-role {
+.node-owner {
   color: #666;
   white-space: nowrap;
   overflow: hidden;
@@ -136,6 +139,7 @@ const isSelected = computed(() => nodeStore.selectedNodeId === props.nodeId)
   border: 1px solid #ccc;
   cursor: pointer;
   background: #fff;
+  color: #213547;
   font-size: 0.75rem;
 }
 

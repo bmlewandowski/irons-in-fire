@@ -1234,6 +1234,7 @@ const edges = computed<Array<{ x1: number; y1: number; x2: number; y2: number; k
   border: 1px solid #ccc;
   border-radius: 6px;
   background: #fff;
+  color: #213547;
   padding: 8px;
   cursor: move;
   transition: border-color 0.15s, box-shadow 0.15s;

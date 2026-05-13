@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useGoalStore } from '@/stores/goalStore'
 import type { GoalStatus } from '@/models'
 
@@ -30,6 +30,20 @@ function progressColor(pct: number): string {
   return '#b71c1c'
 }
 
+const showDeleteConfirm = ref(false)
+
+function onDeleteClick() {
+  showDeleteConfirm.value = true
+}
+
+function onConfirmDelete() {
+  showDeleteConfirm.value = false
+  emit('delete')
+}
+
+function onCancelDelete() {
+  showDeleteConfirm.value = false
+}
 
 </script>
 
@@ -92,8 +106,22 @@ function progressColor(pct: number): string {
     </select>
 
     <!-- Delete button -->
-    <button aria-label="Delete goal" @click="emit('delete')">Delete</button>
+    <button class="btn-delete" aria-label="Delete goal" @click="onDeleteClick">Delete</button>
   </div>
+
+  <!-- Delete confirmation modal -->
+  <Teleport to="body">
+    <div v-if="showDeleteConfirm" class="modal-backdrop" @click.self="onCancelDelete">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <h3 id="modal-title" class="modal-title">Delete Goal</h3>
+        <p class="modal-body">Are you sure you want to delete <strong>"{{ goal?.description }}"</strong>? This cannot be undone.</p>
+        <div class="modal-actions">
+          <button class="btn-cancel" @click="onCancelDelete">Cancel</button>
+          <button class="btn-confirm-delete" @click="onConfirmDelete">Delete</button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -176,11 +204,81 @@ button {
   border: 1px solid #ccc;
   cursor: pointer;
   background: #fff;
+  color: #213547;
 }
 
 button:hover {
   background: #fee;
   border-color: #f88;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: #fff;
+  color: #213547;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  padding: 24px;
+  width: 340px;
+  max-width: 90vw;
+  font-size: 0.9rem;
+}
+
+.modal-title {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.modal-body {
+  margin: 0 0 20px;
+  line-height: 1.5;
+  color: #444;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.btn-cancel {
+  padding: 6px 16px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  background: #f5f5f5;
+  color: #213547;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.btn-cancel:hover {
+  background: #e8e8e8;
+}
+
+.btn-confirm-delete {
+  padding: 6px 16px;
+  border-radius: 4px;
+  border: 1px solid #d32f2f;
+  background: #d32f2f;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.btn-confirm-delete:hover {
+  background: #b71c1c;
+  border-color: #b71c1c;
 }
 
 </style>
