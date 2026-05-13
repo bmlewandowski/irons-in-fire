@@ -1,12 +1,18 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useUiStore } from '@/stores/uiStore'
+import { useNodeStore } from '@/stores/nodeStore'
 import OrgChartContainer from '@/components/OrgChartContainer.vue'
 import ExecutiveDashboard from '@/components/ExecutiveDashboard.vue'
 
 const uiStore = useUiStore()
+const nodeStore = useNodeStore()
+
 type Tab = 'orgchart' | 'dashboard'
 const activeTab = ref<Tab>('orgchart')
+
+const orgChartRef = ref<InstanceType<typeof OrgChartContainer> | null>(null)
+const hasNodes = computed(() => Object.keys(nodeStore.nodes).length > 0)
 </script>
 
 <template>
@@ -27,6 +33,26 @@ const activeTab = ref<Tab>('orgchart')
           @click="activeTab = 'dashboard'"
         >Dashboard</button>
       </nav>
+
+      <!-- Org chart toolbar (right-justified) -->
+      <div v-if="activeTab === 'orgchart'" class="header-toolbar">
+        <button class="header-btn" aria-label="Add node" @click="orgChartRef?.openCreateRoot()">
+          + Add Node
+        </button>
+        <button v-if="hasNodes" class="header-btn" aria-label="Clean up layout" @click="orgChartRef?.relayoutNodes()">
+          ⬜ Clean Up
+        </button>
+        <button v-if="hasNodes" class="header-btn header-btn--muted" aria-label="Reset layout" @click="orgChartRef && (orgChartRef.showResetConfirm.value = true)">
+          ↺ Reset Layout
+        </button>
+        <div class="header-divider"></div>
+        <button class="header-btn" aria-label="Export data as JSON" @click="orgChartRef?.exportData()">
+          ↓ Export
+        </button>
+        <button class="header-btn" aria-label="Import data from JSON" @click="orgChartRef?.triggerImport()">
+          ↑ Import
+        </button>
+      </div>
     </header>
 
     <main class="app-main">
@@ -47,7 +73,7 @@ const activeTab = ref<Tab>('orgchart')
         role="tabpanel"
         aria-label="Organization Chart"
       >
-        <OrgChartContainer />
+        <OrgChartContainer ref="orgChartRef" />
       </section>
     </main>
 
@@ -108,6 +134,47 @@ const activeTab = ref<Tab>('orgchart')
 .tab-bar {
   display: flex;
   gap: 0;
+}
+
+.header-toolbar {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.header-btn {
+  padding: 5px 12px;
+  height: 2rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 5px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.header-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.header-btn--muted {
+  color: rgba(255, 255, 255, 0.65);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.header-btn--muted:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.header-divider {
+  width: 1px;
+  height: 1.25rem;
+  background: rgba(255, 255, 255, 0.2);
+  margin: 0 4px;
 }
 
 .tab-btn {

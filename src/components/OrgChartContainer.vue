@@ -301,6 +301,65 @@ function resetLayout() {
   localStorage.removeItem(LAYOUT_STORAGE_KEY)
 }
 
+const showResetConfirm = ref(false)
+
+// ── Export / Import ────────────────────────────────────────────────────────
+
+const importFileInput = ref<HTMLInputElement | null>(null)
+const importPayload = ref<{ nodes: unknown[]; goals: unknown[] } | null>(null)
+const importError = ref<string | null>(null)
+
+function exportData() {
+  const payload = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    nodes: Object.values(nodeStore.nodes),
+    goals: Object.values(goalStore.goals),
+  }
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `irons-in-fire-${new Date().toISOString().slice(0, 10)}.json`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+function onImportFileChange(event: Event) {
+  importError.value = null
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    try {
+      const parsed = JSON.parse(e.target?.result as string)
+      if (!Array.isArray(parsed?.nodes) || !Array.isArray(parsed?.goals)) {
+        importError.value = 'Invalid file: must contain "nodes" and "goals" arrays.'
+        return
+      }
+      importPayload.value = { nodes: parsed.nodes, goals: parsed.goals }
+    } catch {
+      importError.value = 'Could not parse file as JSON.'
+    }
+    // Reset input so the same file can be re-selected
+    if (importFileInput.value) importFileInput.value.value = ''
+  }
+  reader.readAsText(file)
+}
+
+function confirmImport() {
+  if (!importPayload.value) return
+  localStorage.setItem('irons-in-fire:nodes', JSON.stringify(importPayload.value.nodes))
+  localStorage.setItem('irons-in-fire:goals', JSON.stringify(importPayload.value.goals))
+  importPayload.value = null
+  window.location.reload()
+}
+
+function cancelImport() {
+  importPayload.value = null
+  importError.value = null
+}
+
 // Auto-save whenever sizes or offsets change (debounced to avoid thrashing).
 let _layoutSaveTimer: ReturnType<typeof setTimeout> | null = null
 watch(
@@ -938,6 +997,16 @@ const edges = computed<Array<{ x1: number; y1: number; x2: number; y2: number; k
   }
   return result
 })
+
+defineExpose({
+  exportData,
+  triggerImport: () => importFileInput.value?.click(),
+  openCreateRoot,
+  relayoutNodes,
+  showResetConfirm,
+  resetLayout,
+  isEmpty,
+})
 </script>
 
 <template>
@@ -1093,35 +1162,55 @@ const edges = computed<Array<{ x1: number; y1: number; x2: number; y2: number; k
     </div>
   </div>
 
-  <!-- Floating Add Root Node button (when nodes already exist) -->
-  <button
-    v-if="!isEmpty"
-    class="btn-add-root"
-    aria-label="Add root node"
-    @click="openCreateRoot"
-  >
-    + Add Node
-  </button>
+  <!-- Hidden file input for import -->
+  <input
+    ref="importFileInput"
+    type="file"
+    accept="application/json,.json"
+    style="display:none"
+    @change="onImportFileChange"
+  />
 
-  <!-- Floating Clean Up Layout button -->
-  <button
-    v-if="!isEmpty"
-    class="btn-relayout"
-    aria-label="Clean up layout"
-    @click="relayoutNodes"
-  >
-    ⬜ Clean Up Layout
-  </button>
+  <!-- Import error toast -->
+  <div v-if="importError" class="import-error" role="alert">
+    {{ importError }}
+    <button aria-label="Dismiss error" @click="importError = null">✕</button>
+  </div>
 
-  <!-- Floating Reset Layout button -->
-  <button
-    v-if="!isEmpty"
-    class="btn-reset-layout"
-    aria-label="Reset layout"
-    @click="resetLayout"
+  <!-- Import confirmation dialog -->
+  <div
+    v-if="importPayload"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="confirm-import-title"
+    class="confirm-delete-overlay"
+    @click.self="cancelImport"
   >
-    ↺ Reset Layout
-  </button>
+    <div class="confirm-delete-panel">
+      <h2 id="confirm-import-title">Import Data</h2>
+      <p>This will <strong>replace all current nodes and goals</strong> with the imported data. The page will reload. This cannot be undone.</p>
+      <p class="import-summary">{{ importPayload.nodes.length }} node(s) and {{ importPayload.goals.length }} goal(s) will be imported.</p>
+      <button class="btn-danger" aria-label="Confirm import" @click="confirmImport">Import &amp; Reload</button>
+      <button aria-label="Cancel import" @click="cancelImport">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Reset layout confirmation dialog -->
+  <div
+    v-if="showResetConfirm"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="confirm-reset-title"
+    class="confirm-delete-overlay"
+    @click.self="showResetConfirm = false"
+  >
+    <div class="confirm-delete-panel">
+      <h2 id="confirm-reset-title">Reset Layout</h2>
+      <p>This will collapse all nodes to their default sizes and positions, and any custom resizing or repositioning will be lost.</p>
+      <button class="btn-danger" aria-label="Confirm reset layout" @click="() => { showResetConfirm = false; resetLayout() }">Reset Layout</button>
+      <button aria-label="Cancel reset" @click="showResetConfirm = false">Cancel</button>
+    </div>
+  </div>
 
   <!-- Goal create modal -->
   <div
@@ -1290,6 +1379,7 @@ g:hover > .resize-handle {
 
 .confirm-delete-panel {
   background: #fff;
+  color: #213547;
   border-radius: 8px;
   padding: 24px;
   min-width: 320px;
@@ -1351,62 +1441,37 @@ g:hover > .resize-handle {
   background: #2d2d4e;
 }
 
-.btn-add-root {
+.import-error {
   position: fixed;
-  bottom: 1.5rem;
-  right: 1.5rem;
-  padding: 10px 18px;
-  background: #1a1a2e;
-  color: #fff;
+  bottom: 5rem;
+  left: 1.5rem;
+  background: #fdecea;
+  color: #c62828;
+  border: 1px solid #f5c6c6;
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 600;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+
+.import-error button {
+  background: none;
   border: none;
-  border-radius: 24px;
-  font-size: 0.9rem;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-  z-index: 500;
+  color: #c62828;
+  font-size: 1rem;
+  padding: 0;
+  line-height: 1;
 }
 
-.btn-add-root:hover {
-  background: #2d2d4e;
-}
-
-.btn-relayout {
-  position: fixed;
-  bottom: 1.5rem;
-  right: 10rem;
-  padding: 10px 18px;
-  background: #fff;
-  color: #1a1a2e;
-  border: 1.5px solid #1a1a2e;
-  border-radius: 24px;
-  font-size: 0.9rem;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  z-index: 500;
-}
-
-.btn-relayout:hover {
-  background: #f0f0f8;
-}
-
-.btn-reset-layout {
-  position: fixed;
-  bottom: 1.5rem;
-  right: 20.5rem;
-  padding: 10px 18px;
-  background: #fff;
+.import-summary {
+  font-size: 0.85rem;
   color: #555;
-  border: 1.5px solid #aaa;
-  border-radius: 24px;
-  font-size: 0.9rem;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-  z-index: 500;
-}
-
-.btn-reset-layout:hover {
-  background: #fafafa;
-  border-color: #888;
+  margin: 0 0 16px;
 }
 
 .node-modal-panel {
