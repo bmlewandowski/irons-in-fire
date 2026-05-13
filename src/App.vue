@@ -46,7 +46,7 @@ const hasNodes = computed(() => Object.keys(nodeStore.nodes).length > 0)
         <button v-if="hasNodes" class="header-btn" aria-label="Clean up layout" @click="orgChartRef?.relayoutNodes()">
           ⬜ Clean Up
         </button>
-        <button v-if="hasNodes" class="header-btn header-btn--muted" aria-label="Reset layout" @click="orgChartRef && (orgChartRef.showResetConfirm.value = true)">
+        <button v-if="hasNodes" class="header-btn header-btn--muted" aria-label="Reset layout" @click="orgChartRef && (orgChartRef.showResetConfirm = true)">
           ↺ Reset Layout
         </button>
         <div class="header-divider"></div>

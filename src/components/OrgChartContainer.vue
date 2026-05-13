@@ -850,6 +850,41 @@ function openEditNode(nodeId: string) {
   }
 }
 
+/**
+ * After a child node is created, position it relative to its parent's
+ * current visual location rather than leaving it at the default layout spot.
+ *
+ * - 0 existing siblings: center the child horizontally below the parent.
+ * - ≥1 existing siblings: run the full clean-up layout so all children are
+ *   neatly arranged (mirrors pressing the "Clean Up" button).
+ */
+async function positionNewChild(childId: string, parentId: string, siblingCountBefore: number): Promise<void> {
+  await nextTick() // wait for nodePositions to include the new node
+
+  if (siblingCountBefore >= 1) {
+    // Has siblings — run full clean-up to arrange them all
+    relayoutNodes()
+    return
+  }
+
+  // First child — place centered directly below parent
+  const parentX = getNodeX(parentId)
+  const parentY = getNodeY(parentId)
+  const { width: parentW, height: parentH } = getNodeSize(parentId)
+  const { width: childW } = getNodeSize(childId)
+
+  const targetX = parentX + (parentW - childW) / 2
+  const targetY = parentY + parentH + LAYOUT_GAP_Y
+
+  const defaultPos = nodePositions.value.get(childId) ?? { x: 0, y: 0 }
+  const newOffsetMap = new Map(nodePositionOffsets.value)
+  newOffsetMap.set(childId, {
+    dx: targetX - defaultPos.x,
+    dy: targetY - defaultPos.y,
+  })
+  nodePositionOffsets.value = newOffsetMap
+}
+
 async function saveNode() {
   if (!nodeModal.value) return
   const { mode, parentId, editId, title, ownerName, roleLevel, customRoleLabel } = nodeModal.value
@@ -863,13 +898,18 @@ async function saveNode() {
         customRoleLabel: roleLevel === 'Custom' ? customRoleLabel : undefined,
       })
     } else {
-      await nodeStore.createNode({
+      // Snapshot sibling count before creation so positionNewChild knows which strategy to use
+      const siblingCountBefore = parentId ? nodeStore.childrenOf(parentId).length : 0
+      const newNode = await nodeStore.createNode({
         title,
         ownerName,
         roleLevel: roleLevel as any,
         customRoleLabel: roleLevel === 'Custom' ? customRoleLabel : undefined,
         parentId: parentId ?? null,
       })
+      if (mode === 'create-child' && parentId) {
+        positionNewChild(newNode.id, parentId, siblingCountBefore)
+      }
     }
     nodeModal.value = null
   } catch (err) {

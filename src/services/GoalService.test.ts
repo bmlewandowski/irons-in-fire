@@ -60,7 +60,7 @@ function makeServices(failAt?: ConstructorParameters<typeof MockAdapter>[0]) {
 
 /** Seed a node into both the store and adapter. */
 async function seedNode(
-  adapter: MockAdapter,
+  _adapter: MockAdapter,
   nodeStore: ReturnType<typeof useNodeStore>,
   overrides: Partial<OrgNode> = {},
 ): Promise<OrgNode> {
@@ -71,12 +71,12 @@ async function seedNode(
 
 /** Seed a goal into both the store and adapter. */
 async function seedGoal(
-  adapter: MockAdapter,
+  _adapter: MockAdapter,
   goalStore: ReturnType<typeof useGoalStore>,
   overrides: Partial<Goal> = {},
 ): Promise<Goal> {
   const goal = makeGoal(overrides)
-  await adapter.createGoal(goal)
+  await _adapter.createGoal(goal)
   goalStore.$patch((s) => { s.goals[goal.id] = goal })
   return goal
 }
@@ -342,7 +342,6 @@ describe('GoalService.updateGoal', () => {
 
   it('triggers a notification for each direct refiner when description changes', async () => {
     // Add a Refined goal that references rootGoalId
-    const { adapter: _a, goalStore: gs } = { adapter, goalStore }
     const refiner = await seedGoal(adapter, goalStore, {
       id: 'refiner-goal',
       nodeId: 'n-child',
