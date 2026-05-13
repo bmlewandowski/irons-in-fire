@@ -36,6 +36,10 @@ const hasNodes = computed(() => Object.keys(nodeStore.nodes).length > 0)
 
       <!-- Org chart toolbar (right-justified) -->
       <div v-if="activeTab === 'orgchart'" class="header-toolbar">
+        <button v-if="hasNodes" class="header-btn" aria-label="Go to home position" @click="orgChartRef?.goHome()">
+          ⌂ Home
+        </button>
+        <div v-if="hasNodes" class="header-divider"></div>
         <button class="header-btn" aria-label="Add node" @click="orgChartRef?.openCreateRoot()">
           + Add Node
         </button>

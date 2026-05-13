@@ -1006,7 +1006,38 @@ defineExpose({
   showResetConfirm,
   resetLayout,
   isEmpty,
+  goHome,
 })
+
+function goHome() {
+  const positions = nodePositions.value
+  if (positions.size === 0) return
+
+  // Find the leftmost root node
+  const rootIds = Object.values(nodeStore.nodes)
+    .filter((n) => n.parentId === null)
+    .map((n) => n.id)
+
+  if (rootIds.length === 0) return
+
+  let targetId = rootIds[0]
+  for (const id of rootIds) {
+    const pos = positions.get(id)
+    const best = positions.get(targetId)
+    if (pos && best && pos.x < best.x) targetId = id
+  }
+
+  const nodeX = getNodeX(targetId)
+  const nodeY = getNodeY(targetId)
+  const MARGIN = 40
+
+  transform.value = {
+    ...transform.value,
+    x: -nodeX * transform.value.scale + MARGIN,
+    y: -nodeY * transform.value.scale + MARGIN,
+  }
+  updateViewport()
+}
 </script>
 
 <template>
