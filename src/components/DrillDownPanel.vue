@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import { useGoalStore } from '@/stores/goalStore'
 import { useNodeStore } from '@/stores/nodeStore'
 import type { Goal } from '@/models'

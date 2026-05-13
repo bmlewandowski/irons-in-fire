@@ -814,7 +814,7 @@ async function saveNode() {
     }
     nodeModal.value = null
   } catch (err) {
-    nodeModal.value.error = err instanceof Error ? err.message : 'An error occurred.'
+    if (nodeModal.value) nodeModal.value.error = err instanceof Error ? err.message : 'An error occurred.'
   }
 }
 
@@ -889,7 +889,7 @@ async function saveGoal() {
     })
     goalModal.value = null
   } catch (err) {
-    goalModal.value.error = err instanceof Error ? err.message : 'An error occurred.'
+    if (goalModal.value) goalModal.value.error = err instanceof Error ? err.message : 'An error occurred.'
   }
 }
 

@@ -14,9 +14,7 @@ import {
 } from './ValidationService'
 import type {
   CreateNodeInput,
-  UpdateNodeInput,
   CreateGoalInput,
-  UpdateGoalInput,
 } from './ValidationService'
 
 // ---------------------------------------------------------------------------
@@ -344,7 +342,7 @@ describe('validateCreateNodeInput', () => {
   const validInput: CreateNodeInput = {
     title: 'Engineering',
     ownerName: 'Alice',
-    roleLevel: 'VP',
+    roleLevel: 'Vice President',
   }
 
   it('returns empty array for fully valid input', () => {
@@ -419,7 +417,7 @@ describe('validateCreateNodeInput', () => {
   })
 
   it('all errors have code VALIDATION_ERROR, field, and constraint (Req 10.5, 10.7)', () => {
-    const errors = validateCreateNodeInput({ title: '', ownerName: '', roleLevel: 'VP' })
+    const errors = validateCreateNodeInput({ title: '', ownerName: '', roleLevel: 'Vice President' })
     for (const err of errors) {
       expect(err.code).toBe('VALIDATION_ERROR')
       expect(err.field).toBeDefined()

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import type { Goal } from '@/models'
 import type { GoalService } from '@/services/GoalService'
 

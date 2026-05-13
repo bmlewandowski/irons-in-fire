@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { useGoalStore } from '@/stores/goalStore'
 import type { GoalStatus } from '@/models'
 
