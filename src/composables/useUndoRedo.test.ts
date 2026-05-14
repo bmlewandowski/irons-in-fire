@@ -48,12 +48,19 @@ function makeGoal(overrides: Partial<Goal> = {}): Goal {
   }
 }
 
-function emptyLayout() {
+type LayoutSnapshot = {
+  sizes: [string, { width: number; height: number }][]
+  positions: [string, { x: number; y: number }][]
+  collapsed: string[]
+  collapsedGoals: string[]
+}
+
+function emptyLayout(): LayoutSnapshot {
   return { sizes: [], positions: [], collapsed: [], collapsedGoals: [] }
 }
 
 function makeLayoutAccessors(): LayoutAccessors {
-  let _layout = emptyLayout()
+  let _layout: LayoutSnapshot = emptyLayout()
   return {
     getLayout: () => ({ ..._layout }),
     setLayout: vi.fn((l) => { _layout = l }),
@@ -216,8 +223,6 @@ describe('useUndoRedo', () => {
     for (let i = 0; i < 60; i++) snapshot()
     // canUndo should still be true and past.length capped at 50
     expect(canUndo.value).toBe(true)
-    // verify by undoing 50 times — should not throw on the 51st attempt
-    const { undo: undoControl } = useUndoRedo(makeLayoutAccessors())
-    // just ensure no error thrown; sufficient check via canUndo
+    // No need to verify by undoing 50 times; canUndo check is sufficient
   })
 })
