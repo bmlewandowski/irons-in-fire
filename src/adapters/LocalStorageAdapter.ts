@@ -67,10 +67,16 @@ class IdbFallback {
  *   - 'irons-in-fire:nodes'
  *   - 'irons-in-fire:goals'
  *
+ * Instance-level caching prevents redundant JSON parsing on every read.
+ * Cache is invalidated on any write operation.
+ *
  * Requirements: 7.2
  */
 export class LocalStorageAdapter implements PersistenceAdapter {
   private readonly idb = new IdbFallback()
+  
+  // Instance-level cache to avoid re-parsing JSON on every read
+  private cache: Map<string, unknown[]> = new Map()
 
   // -------------------------------------------------------------------------
   // Low-level read / write helpers
@@ -80,20 +86,48 @@ export class LocalStorageAdapter implements PersistenceAdapter {
    * Reads a JSON array from localStorage (or IndexedDB if the key was
    * previously migrated there).  Returns an empty array on any parse failure
    * or when the key is absent.
+   * 
+   * Uses instance-level cache to avoid redundant JSON parsing.
    */
   private async readArray<T>(key: string): Promise<T[]> {
+    // Check cache first
+    if (this.cache.has(key)) {
+      return this.cache.get(key) as T[]
+    }
+    
+    // Cache miss - read from storage
+    // Check cache first
+    if (this.cache.has(key)) {
+      return this.cache.get(key) as T[]
+    }
+    
+    // Cache miss - read from storage
     try {
       const raw = localStorage.getItem(key)
-      if (raw === null) return []
-      return JSON.parse(raw) as T[]
+      if (raw === null) {
+        const empty: T[] = []
+        this.cache.set(key, empty)
+        return empty
+      }
+      const parsed = JSON.parse(raw) as T[]
+      this.cache.set(key, parsed)
+      return parsed
     } catch {
       // localStorage unavailable or parse error — try IndexedDB
       try {
         const raw = await this.idb.get(key)
-        if (raw === null) return []
-        return JSON.parse(raw) as T[]
+        if (raw === null) {
+          const empty: T[] = []
+          this.cache.set(key, empty)
+          return empty
+        }
+        const parsed = JSON.parse(raw) as T[]
+        this.cache.set(key, parsed)
+        return parsed
       } catch {
-        return []
+        const empty: T[] = []
+        this.cache.set(key, empty)
+        return empty
       }
     }
   }
@@ -101,8 +135,12 @@ export class LocalStorageAdapter implements PersistenceAdapter {
   /**
    * Writes a JSON array to localStorage.  Falls back to IndexedDB when a
    * quota error is thrown.
+   * 
+   * Invalidates the cache for this key to ensure subsequent reads get fresh data.
    */
   private async writeArray<T>(key: string, data: T[]): Promise<void> {
+    // Invalidate cache before writing
+    this.cache.delete(key)
     const serialized = JSON.stringify(data)
     try {
       localStorage.setItem(key, serialized)

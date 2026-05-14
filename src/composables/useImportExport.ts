@@ -139,6 +139,48 @@ export function useImportExport(
           })
         }
 
+        // Validate node parentId referential integrity
+        for (const node of cleanNodes) {
+          if (node.parentId !== null && !nodeIdSet.has(node.parentId)) {
+            const shortId = node.id.slice(0, 8)
+            errors.push(`Node ${shortId}: parentId references unknown node ${node.parentId.slice(0, 8)}.`)
+          }
+        }
+
+        // Detect cycles in node tree using DFS
+        const visited = new Set<string>()
+        const recursionStack = new Set<string>()
+        const parentMap = new Map<string, string | null>()
+        for (const node of cleanNodes) {
+          parentMap.set(node.id, node.parentId)
+        }
+
+        function hasCycle(nodeId: string): boolean {
+          if (recursionStack.has(nodeId)) return true
+          if (visited.has(nodeId)) return false
+          
+          visited.add(nodeId)
+          recursionStack.add(nodeId)
+          
+          const parent = parentMap.get(nodeId)
+          if (parent !== null && parent !== undefined) {
+            if (hasCycle(parent)) {
+              return true
+            }
+          }
+          
+          recursionStack.delete(nodeId)
+          return false
+        }
+
+        for (const node of cleanNodes) {
+          if (hasCycle(node.id)) {
+            const shortId = node.id.slice(0, 8)
+            errors.push(`Node ${shortId}: parentId chain contains a cycle.`)
+            break // Only report first cycle found
+          }
+        }
+
         for (const raw of parsed.goals) {
           if (typeof raw !== 'object' || raw === null) { errors.push('A goal record is not an object.'); continue }
           const r = raw as Record<string, unknown>
@@ -173,6 +215,60 @@ export function useImportExport(
             createdAt: typeof r.createdAt === 'string' ? r.createdAt : new Date().toISOString(),
             updatedAt: typeof r.updatedAt === 'string' ? r.updatedAt : new Date().toISOString(),
           })
+        }
+
+        // Validate goal sourceGoalId referential integrity
+        for (const goal of cleanGoals) {
+          const shortId = goal.id.slice(0, 8)
+          
+          // Refined goals must have sourceGoalId
+          if (goal.type === 'Refined' && !goal.sourceGoalId) {
+            errors.push(`Goal ${shortId}: Refined goals must have a sourceGoalId.`)
+          }
+          
+          // Root and Sub_Task should not have sourceGoalId
+          if ((goal.type === 'Root' || goal.type === 'Sub_Task') && goal.sourceGoalId) {
+            errors.push(`Goal ${shortId}: ${goal.type} goals should not have a sourceGoalId.`)
+          }
+          
+          // If sourceGoalId is present, it must reference an existing goal
+          if (goal.sourceGoalId && !goalIdSet.has(goal.sourceGoalId)) {
+            errors.push(`Goal ${shortId}: sourceGoalId references unknown goal ${goal.sourceGoalId.slice(0, 8)}.`)
+          }
+        }
+
+        // Detect cycles in goal sourceGoalId chains
+        const goalVisited = new Set<string>()
+        const goalRecursionStack = new Set<string>()
+        const sourceMap = new Map<string, string | undefined>()
+        for (const goal of cleanGoals) {
+          sourceMap.set(goal.id, goal.sourceGoalId)
+        }
+
+        function hasGoalCycle(goalId: string): boolean {
+          if (goalRecursionStack.has(goalId)) return true
+          if (goalVisited.has(goalId)) return false
+          
+          goalVisited.add(goalId)
+          goalRecursionStack.add(goalId)
+          
+          const source = sourceMap.get(goalId)
+          if (source !== undefined && source !== null) {
+            if (hasGoalCycle(source)) {
+              return true
+            }
+          }
+          
+          goalRecursionStack.delete(goalId)
+          return false
+        }
+
+        for (const goal of cleanGoals) {
+          if (hasGoalCycle(goal.id)) {
+            const shortId = goal.id.slice(0, 8)
+            errors.push(`Goal ${shortId}: sourceGoalId chain contains a cycle.`)
+            break // Only report first cycle found
+          }
         }
 
         if (errors.length > 0) {

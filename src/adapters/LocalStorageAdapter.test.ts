@@ -432,5 +432,99 @@ describe('LocalStorageAdapter', () => {
       expect(await adapter.readAllNodes()).toEqual([])
     })
   })
+
+  // ── Instance-level caching ──────────────────────────────────────────────
+
+  describe('caching behavior', () => {
+    it('reads from localStorage only once when called multiple times', async () => {
+      const node = makeNode({ id: 'n1' })
+      localStorage.setItem(NODES_KEY, JSON.stringify([node]))
+      
+      const getItemSpy = vi.spyOn(localStorage as unknown as MemoryStorage, 'getItem')
+      
+      // First read - should hit localStorage
+      await adapter.readAllNodes()
+      expect(getItemSpy).toHaveBeenCalledTimes(1)
+      
+      // Second read - should use cache
+      await adapter.readAllNodes()
+      expect(getItemSpy).toHaveBeenCalledTimes(1)
+      
+      // Third read - still cached
+      await adapter.readNodeById('n1')
+      expect(getItemSpy).toHaveBeenCalledTimes(1)
+    })
+
+    it('invalidates cache on write operations', async () => {
+      const node1 = makeNode({ id: 'n1' })
+      await adapter.createNode(node1)
+      
+      const getItemSpy = vi.spyOn(localStorage as unknown as MemoryStorage, 'getItem')
+      
+      // Read to populate cache
+      await adapter.readAllNodes()
+      expect(getItemSpy).toHaveBeenCalledTimes(1)
+      
+      // Write should invalidate cache
+      const node2 = makeNode({ id: 'n2', title: 'HR' })
+      await adapter.createNode(node2)
+      
+      // Next read should hit localStorage again
+      getItemSpy.mockClear()
+      const nodes = await adapter.readAllNodes()
+      expect(getItemSpy).toHaveBeenCalledTimes(1)
+      expect(nodes).toHaveLength(2)
+    })
+
+    it('maintains separate caches for nodes and goals', async () => {
+      const node = makeNode({ id: 'n1' })
+      const goal = makeGoal({ id: 'g1', nodeId: 'n1' })
+      
+      localStorage.setItem(NODES_KEY, JSON.stringify([node]))
+      localStorage.setItem(GOALS_KEY, JSON.stringify([goal]))
+      
+      const getItemSpy = vi.spyOn(localStorage as unknown as MemoryStorage, 'getItem')
+      
+      // Read nodes - cache nodes
+      await adapter.readAllNodes()
+      expect(getItemSpy).toHaveBeenCalledTimes(1)
+      
+      // Read goals - cache goals (separate from nodes)
+      await adapter.readAllGoals()
+      expect(getItemSpy).toHaveBeenCalledTimes(2)
+      
+      // Read nodes again - still cached
+      await adapter.readAllNodes()
+      expect(getItemSpy).toHaveBeenCalledTimes(2)
+    })
+
+    it('cache invalidation on updateNode only affects nodes cache', async () => {
+      const node = makeNode({ id: 'n1' })
+      const goal = makeGoal({ id: 'g1', nodeId: 'n1' })
+      
+      await adapter.createNode(node)
+      await adapter.createGoal(goal)
+      
+      const getItemSpy = vi.spyOn(localStorage as unknown as MemoryStorage, 'getItem')
+      
+      // Populate both caches
+      await adapter.readAllNodes()
+      await adapter.readAllGoals()
+      expect(getItemSpy).toHaveBeenCalledTimes(2)
+      
+      getItemSpy.mockClear()
+      
+      // Update node - should only invalidate nodes cache
+      await adapter.updateNode('n1', { title: 'Updated' })
+      
+      // Reading goals should still use cache
+      await adapter.readAllGoals()
+      expect(getItemSpy).toHaveBeenCalledTimes(0)
+      
+      // Reading nodes should hit localStorage
+      await adapter.readAllNodes()
+      expect(getItemSpy).toHaveBeenCalledTimes(1)
+    })
+  })
 })
 

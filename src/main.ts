@@ -4,6 +4,7 @@ import App from './App.vue'
 import './style.css'
 import { createAdapter, ConfigurationError } from '@/adapters'
 import { NodeService, GoalService, ProgressService } from '@/services'
+import { installServices } from '@/services/ServiceContainer'
 import { setNodeService } from '@/stores/nodeStore'
 import { setGoalService } from '@/stores/goalStore'
 import { useNodeStore } from '@/stores/nodeStore'
@@ -46,14 +47,17 @@ const progressService = new ProgressService(goalStore)
 const nodeService = new NodeService(adapter, nodeStore, goalStore)
 const goalService = new GoalService(adapter, nodeStore, goalStore, uiStore, progressService)
 
-// 5. Wire services into stores
+// 5. Install services into Vue app (new pattern - provide/inject)
+installServices(app, { nodeService, goalService, progressService })
+
+// 6. Wire services into stores (legacy pattern - module variables)
 setNodeService(nodeService)
 setGoalService(goalService)
 
-// 6. Mount app
+// 7. Mount app
 app.mount('#app')
 
-// 7. Load persisted data into stores
+// 8. Load persisted data into stores
 ;(async () => {
   try {
     const [allNodes, allGoals] = await Promise.all([

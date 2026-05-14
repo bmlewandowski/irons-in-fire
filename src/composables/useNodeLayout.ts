@@ -119,19 +119,37 @@ export function useNodeLayout(
    *
    * Pass 1 — subtreeWidth(): minimum horizontal slot for each subtree.
    * Pass 2 — placeSubtree(): assign absolute (x, y) positions top-down.
+   * 
+   * Memoization prevents O(n²) complexity by caching subtree width calculations.
    */
   function relayoutNodes() {
     const nodes = nodeStore.nodes
     if (Object.keys(nodes).length === 0) return
 
+    // Memoization cache for subtree widths (cleared each layout pass)
+    const widthCache = new Map<string, number>()
+
     function subtreeWidth(nodeId: string): number {
+      // Check cache first
+      const cached = widthCache.get(nodeId)
+      if (cached !== undefined) return cached
+
       const children = collapsedNodes.value?.has(nodeId) ? [] : nodeStore.childrenOf(nodeId)
       const { width } = getNodeSize(nodeId)
-      if (children.length === 0) return width
-      const childrenSpan =
-        children.reduce((sum, c) => sum + subtreeWidth(c.id), 0) +
-        LAYOUT_GAP_X * (children.length - 1)
-      return Math.max(width, childrenSpan)
+      
+      let result: number
+      if (children.length === 0) {
+        result = width
+      } else {
+        const childrenSpan =
+          children.reduce((sum, c) => sum + subtreeWidth(c.id), 0) +
+          LAYOUT_GAP_X * (children.length - 1)
+        result = Math.max(width, childrenSpan)
+      }
+
+      // Cache the result
+      widthCache.set(nodeId, result)
+      return result
     }
 
     const newAbsPositions = new Map<string, { x: number; y: number }>()

@@ -57,65 +57,76 @@
       </template>
     </div>
 
-    <!-- Root goal cards -->
-    <div v-else class="goal-grid">
-      <button
-        v-for="goal in scopedGoals"
-        :key="goal.id"
-        class="goal-card"
-        data-testid="goal-indicator"
-        :data-goal-id="goal.id"
-        :aria-label="`${goal.description} — ${Math.round(goal.progress)}% complete. Click to see breakdown.`"
-        @click="selectedGoalId = goal.id"
-      >
-        <!-- Node name -->
-        <div class="card-node-label">{{ nodeLabel(goal.nodeId) }}</div>
+    <!-- Root goal cards with virtual scrolling -->
+    <div v-else class="goal-grid-container" v-bind="containerProps">
+      <div class="goal-grid-inner" v-bind="listProps">
+        <button
+          v-for="vItem in virtualItems"
+          :key="vItem.item.id"
+          class="goal-card"
+          data-testid="goal-indicator"
+          :data-goal-id="vItem.item.id"
+          :style="{
+            position: 'absolute',
+            top: `${vItem.offsetTop}px`,
+            left: 0,
+            right: 0,
+          }"
+          :aria-label="`${vItem.item.description} — ${Math.round(vItem.item.progress)}% complete. Click to see breakdown.`"
+          @click="selectedGoalId = vItem.item.id"
+        >
+          <!-- Node name -->
+          <div class="card-node-label">{{ nodeLabel(vItem.item.nodeId) }}</div>
 
-        <!-- Description -->
-        <div class="card-desc">{{ goal.description }}</div>
+          <!-- Description -->
+          <div class="card-desc">{{ vItem.item.description }}</div>
 
-        <!-- Progress ring + percent -->
-        <div class="card-progress-row">
-          <div class="ring-wrapper" :title="`${Math.round(goal.progress)}%`">
-            <svg viewBox="0 0 36 36" class="ring-svg" aria-hidden="true">
-              <circle class="ring-bg" cx="18" cy="18" r="15.9" />
-              <circle
-                class="ring-fill"
-                cx="18" cy="18" r="15.9"
-                :stroke="ringColor(goal.progress)"
-                :stroke-dasharray="`${goal.progress} ${100 - goal.progress}`"
-                stroke-dashoffset="25"
-              />
-            </svg>
-            <span class="ring-pct" :style="{ color: ringColor(goal.progress) }">
-              {{ Math.round(goal.progress) }}<small>%</small>
-            </span>
+          <!-- Progress ring + percent -->
+          <div class="card-progress-row">
+            <div class="ring-wrapper" :title="`${Math.round(vItem.item.progress)}%`">
+              <svg viewBox="0 0 36 36" class="ring-svg" aria-hidden="true">
+                <circle class="ring-bg" cx="18" cy="18" r="15.9" />
+                <circle
+                  class="ring-fill"
+                  cx="18" cy="18" r="15.9"
+                  :stroke="ringColor(vItem.item.progress)"
+                  :stroke-dasharray="`${vItem.item.progress} ${100 - vItem.item.progress}`"
+                  stroke-dashoffset="25"
+                />
+              </svg>
+              <span class="ring-pct" :style="{ color: ringColor(vItem.item.progress) }">
+                {{ Math.round(vItem.item.progress) }}<small>%</small>
+              </span>
+            </div>
+            <div class="card-stats">
+              <div class="stat-row">
+                <span class="stat-label">Status</span>
+                <span :class="['badge', statusClass(vItem.item.status)]">{{ vItem.item.status }}</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-label">Refinements</span>
+                <span class="stat-val">{{ childCount(vItem.item.id) }}</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-label">Weight</span>
+                <span class="stat-val">{{ vItem.item.weight }}</span>
+              </div>
+            </div>
           </div>
-          <div class="card-stats">
-            <div class="stat-row">
-              <span class="stat-label">Status</span>
-              <span :class="['badge', statusClass(goal.status)]">{{ goal.status }}</span>
-            </div>
-            <div class="stat-row">
-              <span class="stat-label">Refinements</span>
-              <span class="stat-val">{{ childCount(goal.id) }}</span>
-            </div>
-            <div class="stat-row">
-              <span class="stat-label">Weight</span>
-              <span class="stat-val">{{ goal.weight }}</span>
-            </div>
+
+          <!-- Progress bar -->
+          <div class="card-track" role="progressbar"
+               :aria-valuenow="Math.round(vItem.item.progress)" aria-valuemin="0" aria-valuemax="100">
+            <div class="card-fill"
+                 :style="{ width: vItem.item.progress + '%', background: ringColor(vItem.item.progress) }" />
           </div>
-        </div>
 
-        <!-- Progress bar -->
-        <div class="card-track" role="progressbar"
-             :aria-valuenow="Math.round(goal.progress)" aria-valuemin="0" aria-valuemax="100">
-          <div class="card-fill"
-               :style="{ width: goal.progress + '%', background: ringColor(goal.progress) }" />
-        </div>
-
-        <div class="card-cta">View breakdown →</div>
-      </button>
+          <div class="card-cta">View breakdown →</div>
+        </button>
+      </div>
+      <div v-if="scopedGoals.length > 20" class="virtual-scroll-info">
+        Showing {{ virtualItems.length }} of {{ scopedGoals.length }} goals (virtual scrolling enabled)
+      </div>
     </div>
   </div>
 </template>
@@ -127,6 +138,7 @@ import { useGoalStore } from '@/stores/goalStore'
 import { useNodeStore } from '@/stores/nodeStore'
 import DrillDownPanel from './DrillDownPanel.vue'
 import { progressColor } from '@/composables/useProgressColor'
+import { useVirtualScroll } from '@/composables/useVirtualScroll'
 
 const dashboardStore = useDashboardStore()
 const goalStore = useGoalStore()
@@ -147,6 +159,14 @@ const scopeLabel = computed(() => {
   if (!scopeNodeId.value) return null
   const n = nodeStore.nodes[scopeNodeId.value]
   return n ? `${n.title} · ${n.ownerName}` : null
+})
+
+// Virtual scrolling for goal cards
+const { virtualItems, containerProps, listProps } = useVirtualScroll({
+  items: scopedGoals,
+  estimateSize: () => 280, // Estimated card height
+  overscan: 5,
+  minHeight: '500px',
 })
 
 function nodeLabel(nodeId: string): string {
@@ -257,6 +277,19 @@ function statusClass(status: string): string {
   border: 1px dashed #ccc;
 }
 
+.goal-grid-container {
+  flex: 1;
+  overflow: auto;
+  background: #f4f6fb;
+  border-radius: 8px;
+  padding: 1rem 0;
+}
+
+.goal-grid-inner {
+  position: relative;
+  padding: 0 1rem;
+}
+
 .goal-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -274,12 +307,22 @@ function statusClass(status: string): string {
   cursor: pointer;
   text-align: left;
   transition: box-shadow 0.15s, border-color 0.15s, transform 0.1s;
+  min-height: 240px;
 }
 
 .goal-card:hover {
   box-shadow: 0 4px 18px rgba(0,0,0,0.1);
   border-color: #b0c4de;
   transform: translateY(-2px);
+  z-index: 1;
+}
+
+.virtual-scroll-info {
+  text-align: center;
+  padding: 1rem;
+  font-size: 0.75rem;
+  color: #888;
+  font-style: italic;
 }
 
 .card-node-label {
