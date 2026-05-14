@@ -32,8 +32,10 @@ interface LayoutSnapshot {
 }
 
 interface HistoryEntry {
-  nodes: Record<string, OrgNode>
-  goals: Record<string, Goal>
+  /** Serialized JSON string of Record<string, OrgNode> — parsed only on restore. */
+  nodes: string
+  /** Serialized JSON string of Record<string, Goal> — parsed only on restore. */
+  goals: string
   layout: LayoutSnapshot
 }
 
@@ -61,10 +63,9 @@ export function useUndoRedo(layoutAccessors: LayoutAccessors) {
 
   /** Call this BEFORE a destructive operation to capture the current state. */
   function snapshot() {
-    // Deep-copy nodes + goals (they are plain JSON-serialisable objects)
     const entry: HistoryEntry = {
-      nodes: JSON.parse(JSON.stringify(nodeStore.nodes)),
-      goals: JSON.parse(JSON.stringify(goalStore.goals)),
+      nodes: JSON.stringify(nodeStore.nodes),
+      goals: JSON.stringify(goalStore.goals),
       layout: layoutAccessors.getLayout(),
     }
     past.value = [...past.value.slice(-(MAX_UNDO_DEPTH - 1)), entry]
@@ -73,14 +74,16 @@ export function useUndoRedo(layoutAccessors: LayoutAccessors) {
   }
 
   function restoreEntry(entry: HistoryEntry) {
-    nodeStore.$patch({ nodes: entry.nodes })
-    goalStore.$patch({ goals: entry.goals })
+    const nodes: Record<string, OrgNode> = JSON.parse(entry.nodes)
+    const goals: Record<string, Goal> = JSON.parse(entry.goals)
+    nodeStore.$patch({ nodes })
+    goalStore.$patch({ goals })
     layoutAccessors.setLayout(entry.layout)
     layoutAccessors.saveLayout()
     // Also sync localStorage so a page refresh won't lose the undo
     try {
-      localStorage.setItem('irons-in-fire:nodes', JSON.stringify(Object.values(entry.nodes)))
-      localStorage.setItem('irons-in-fire:goals', JSON.stringify(Object.values(entry.goals)))
+      localStorage.setItem('irons-in-fire:nodes', JSON.stringify(Object.values(nodes)))
+      localStorage.setItem('irons-in-fire:goals', JSON.stringify(Object.values(goals)))
     } catch {
       // quota errors are non-fatal
     }
@@ -90,8 +93,8 @@ export function useUndoRedo(layoutAccessors: LayoutAccessors) {
     if (past.value.length === 0) return
     // Snapshot current state for redo
     const current: HistoryEntry = {
-      nodes: JSON.parse(JSON.stringify(nodeStore.nodes)),
-      goals: JSON.parse(JSON.stringify(goalStore.goals)),
+      nodes: JSON.stringify(nodeStore.nodes),
+      goals: JSON.stringify(goalStore.goals),
       layout: layoutAccessors.getLayout(),
     }
     future.value = [current, ...future.value]
@@ -105,8 +108,8 @@ export function useUndoRedo(layoutAccessors: LayoutAccessors) {
     if (future.value.length === 0) return
     // Push current state onto past
     const current: HistoryEntry = {
-      nodes: JSON.parse(JSON.stringify(nodeStore.nodes)),
-      goals: JSON.parse(JSON.stringify(goalStore.goals)),
+      nodes: JSON.stringify(nodeStore.nodes),
+      goals: JSON.stringify(goalStore.goals),
       layout: layoutAccessors.getLayout(),
     }
     past.value = [...past.value, current]

@@ -48,6 +48,10 @@ export type UpdateGoalInput = Partial<{
 
 const VALID_GOAL_STATUSES: GoalStatus[] = ['Active', 'Refined', 'Complete']
 const VALID_GOAL_TYPES: GoalType[] = ['Root', 'Refined', 'Sub_Task']
+const VALID_ROLE_LEVELS: RoleLevel[] = [
+  'CEO/President', 'Vice President', 'Executive', 'Director', 'Manager',
+  'Supervisor', 'Lead', 'Employee', 'Contractor', 'Custom',
+]
 
 const TITLE_MAX_LENGTH = 100        // Req 1.4 (stricter than Req 10.3's 200)
 const OWNER_NAME_MAX_LENGTH = 100   // Req 1.4
@@ -193,6 +197,21 @@ export function validateGoalWeight(weight: number): AppError | null {
 }
 
 /**
+ * Validates a role level.
+ * Rules: must be one of the recognised RoleLevel values.
+ */
+export function validateRoleLevel(roleLevel: RoleLevel): AppError | null {
+  if (!VALID_ROLE_LEVELS.includes(roleLevel)) {
+    return validationError(
+      'roleLevel',
+      `enum:${VALID_ROLE_LEVELS.join(',')}`,
+      `Role level must be one of: ${VALID_ROLE_LEVELS.join(', ')}.`,
+    )
+  }
+  return null
+}
+
+/**
  * Validates a goal status.
  * Rules: must be one of 'Active' | 'Refined' | 'Complete' (Req 4.1).
  */
@@ -239,6 +258,9 @@ export function validateCreateNodeInput(input: CreateNodeInput): AppError[] {
 
   const ownerError = validateOwnerName(input.ownerName)
   if (ownerError) errors.push(ownerError)
+
+  const roleLevelError = validateRoleLevel(input.roleLevel)
+  if (roleLevelError) errors.push(roleLevelError)
 
   // If roleLevel is Custom, customRoleLabel is required and must be valid
   if (input.roleLevel === 'Custom') {
