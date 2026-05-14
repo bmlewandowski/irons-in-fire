@@ -39,20 +39,7 @@ const roleCssClass = computed(() => {
   return 'role-' + role.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
 })
 
-const showDeleteConfirm = ref(false)
 
-function onDeleteClick() {
-  showDeleteConfirm.value = true
-}
-
-function onConfirmDelete() {
-  showDeleteConfirm.value = false
-  emit('delete', props.nodeId)
-}
-
-function onCancelDelete() {
-  showDeleteConfirm.value = false
-}
 
 // ── Goal tooltip ────────────────────────────────────────────────────────────
 // ── Goal expand/collapse ────────────────────────────────────────────────────
@@ -125,7 +112,7 @@ function onGoalIconLeave() {
       <button aria-label="Add child node" role="menuitem" @click="emit('add-child', props.nodeId)">Add Child</button>
       <button aria-label="Add goal" role="menuitem" @click="emit('add-goal', props.nodeId)">Add Goal</button>
       <button aria-label="Edit node" role="menuitem" @click="emit('edit', props.nodeId)">Edit</button>
-      <button aria-label="Delete node" role="menuitem" @click="onDeleteClick">Delete</button>
+      <button aria-label="Delete node" role="menuitem" @click="emit('delete', props.nodeId)">Delete</button>
     </div>
 
     <!-- Goal cards (toggled by clicking the 🎯 icon) -->
@@ -141,20 +128,6 @@ function onGoalIconLeave() {
     </template>
 
   </div>
-
-  <!-- Delete confirmation modal -->
-  <Teleport to="body">
-    <div v-if="showDeleteConfirm" class="modal-backdrop" @click.self="onCancelDelete">
-      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="node-modal-title">
-        <h3 id="node-modal-title" class="modal-title">Delete Node</h3>
-        <p class="modal-body">Are you sure you want to delete <strong>"{{ node?.title }}"</strong>? All associated goals will also be removed. This cannot be undone.</p>
-        <div class="modal-actions">
-          <button class="btn-cancel" @click="onCancelDelete">Cancel</button>
-          <button class="btn-confirm-delete" @click="onConfirmDelete">Delete</button>
-        </div>
-      </div>
-    </div>
-  </Teleport>
 
   <!-- Goal tooltip -->
   <Teleport to="body">

@@ -152,10 +152,11 @@ const NODE_HEIGHT = 100
 // ── Lazy Viewport Rendering (Subtask 12.2) ──────────────────────────────────
 const LAZY_THRESHOLD = 51
 
-function intersectsViewport(pos: { x: number; y: number }): boolean {
+function intersectsViewport(pos: { x: number; y: number }, nodeId: string): boolean {
   const vp = uiStore.viewport
-  const nodeRight = pos.x + NODE_WIDTH
-  const nodeBottom = pos.y + NODE_HEIGHT
+  const { width, height } = getNodeSize(nodeId)
+  const nodeRight = pos.x + width
+  const nodeBottom = pos.y + height
   const vpRight = vp.x + vp.width
   const vpBottom = vp.y + vp.height
 
@@ -194,7 +195,7 @@ const visibleNodes = computed<string[]>(() => {
   return notHidden.filter((id) => {
     const pos = nodeAbsPositions.value.get(id)
     if (!pos) return true  // show un-positioned nodes (relayout pending)
-    return intersectsViewport(pos)
+    return intersectsViewport(pos, id)
   })
 })
 
@@ -240,6 +241,7 @@ function resetLayout() {
   nodeSizes.value = new Map()
   nodeAbsPositions.value = new Map()
   collapsedNodes.value = new Set()
+  collapsedGoalNodes.value = new Set()
   localStorage.removeItem(LAYOUT_STORAGE_KEY)
   nextTick(() => relayoutNodes())
 }
@@ -698,18 +700,16 @@ function onDeleteNode(nodeId: string) {
       grandparentId: node?.parentId ?? null,
     }
   } else {
-    // No children: snapshot then delete directly
-    snapshot()
-    nodeStore.deleteNode(nodeId).catch((err) => {
-      uiStore.addNotification({
-        id: crypto.randomUUID(),
-        nodeId,
-        message: err instanceof Error ? err.message : 'Failed to delete node.',
-        sourceGoalId: '',
-        read: false,
-        createdAt: new Date().toISOString(),
-      })
-    })
+    // No children: show the same confirmation dialog so the user
+    // always has a single, consistent confirmation step.
+    const goalCount = goalStore.goalsForNode(nodeId).length
+    confirmDelete.value = {
+      nodeId,
+      descendantCount: 0,
+      goalCount,
+      directChildCount: 0,
+      grandparentId: nodeStore.nodes[nodeId]?.parentId ?? null,
+    }
   }
 }
 

@@ -144,14 +144,15 @@ const hasNodes = computed(() => Object.keys(nodeStore.nodes).length > 0)
 }
 
 .app-header {
-  padding: 0 1.5rem;
-  height: 3rem;
+  padding: 0.25rem 1.5rem;
+  min-height: 3rem;
   background: #1a1a2e;
   color: #fff;
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 2rem;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .app-header h1 {
@@ -171,6 +172,8 @@ const hasNodes = computed(() => Object.keys(nodeStore.nodes).length > 0)
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-wrap: wrap;
+  row-gap: 4px;
 }
 
 .header-btn {

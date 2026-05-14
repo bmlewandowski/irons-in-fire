@@ -234,18 +234,16 @@ describe('NodeComponent', () => {
     expect(wrapper.emitted('edit')).toEqual([['n-1']])
   })
 
-  it('emits delete after confirming in delete modal', async () => {
+  it('emits delete when delete button is clicked', async () => {
     nodeStore.$patch({ nodes: { 'n-1': makeNode() }, selectedNodeId: 'n-1' })
 
     const wrapper = mountNode('n-1')
-    // Click Delete in the action menu
+    // Click Delete in the action menu — confirmation is handled by parent (OrgChartContainer)
     const buttons = wrapper.findAll('[role="menuitem"]')
     const deleteBtn = buttons.find((b) => b.text() === 'Delete')
     await deleteBtn!.trigger('click')
 
-    // The teleport is stubbed so confirm button may not be in main DOM; emit via component method
-    // confirm-delete path is via btn-confirm-delete which is teleported — verify modal state instead
-    // Just verify delete event was NOT yet emitted (confirmation not yet done)
-    expect(wrapper.emitted('delete')).toBeUndefined()
+    expect(wrapper.emitted('delete')).toBeDefined()
+    expect(wrapper.emitted('delete')![0]).toEqual(['n-1'])
   })
 })
