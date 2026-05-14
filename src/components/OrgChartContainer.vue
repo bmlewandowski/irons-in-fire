@@ -786,6 +786,62 @@ function toggleCollapse(nodeId: string) {
   }
 }
 
+// ── Goal inline expand/collapse ───────────────────────────────────────────
+/** Node IDs whose goal cards are currently hidden. */
+const collapsedGoalNodes = ref<Set<string>>(new Set())
+
+/** Map from nodeId → the .node-wrapper HTMLElement for that node. */
+const nodeWrapperEls = new Map<string, HTMLElement>()
+
+function setWrapperRef(nodeId: string, el: HTMLElement | null) {
+  if (el) nodeWrapperEls.set(nodeId, el)
+  else nodeWrapperEls.delete(nodeId)
+}
+
+function resizeNodeToContent(nodeId: string) {
+  nextTick(() => {
+    const el = nodeWrapperEls.get(nodeId)
+    if (!el) return
+    const newH = Math.max(MIN_NODE_HEIGHT, el.scrollHeight)
+    const oldH = getNodeSize(nodeId).height
+    const deltaH = newH - oldH
+    if (deltaH === 0) return
+
+    // Resize the node itself
+    const newSizeMap = new Map(nodeSizes.value)
+    const current = getNodeSize(nodeId)
+    newSizeMap.set(nodeId, { width: current.width, height: newH })
+    nodeSizes.value = newSizeMap
+
+    // Shift all descendants down (positive delta) or up (negative delta)
+    // by the same amount so the gap between the node bottom and its children
+    // stays exactly the same.
+    const descendants = nodeStore.subtreeOf(nodeId).slice(1)
+    if (descendants.length === 0) return
+    const newOffsetMap = new Map(nodePositionOffsets.value)
+    for (const desc of descendants) {
+      const existing = newOffsetMap.get(desc.id) ?? { dx: 0, dy: 0 }
+      newOffsetMap.set(desc.id, { dx: existing.dx, dy: existing.dy + deltaH })
+    }
+    nodePositionOffsets.value = newOffsetMap
+  })
+}
+
+/**
+ * Called when NodeComponent toggles its goals panel.
+ * Updates the set then resizes the foreignObject to fit the new content.
+ */
+function onGoalsToggled(nodeId: string) {
+  const newSet = new Set(collapsedGoalNodes.value)
+  if (newSet.has(nodeId)) {
+    newSet.delete(nodeId)
+  } else {
+    newSet.add(nodeId)
+  }
+  collapsedGoalNodes.value = newSet
+  resizeNodeToContent(nodeId)
+}
+
 // ── Focus Trap for Delete Dialog (Task 15.1) ────────────────────────────────
 const dialogPanelRef = ref<HTMLElement | null>(null)
 const focusOrigin = ref<HTMLElement | null>(null)
@@ -1096,7 +1152,30 @@ defineExpose({
   resetLayout,
   isEmpty,
   goHome,
+  collapseAllGoals,
+  expandAllGoals,
+  hasGoals,
 })
+
+function hasGoals(): boolean {
+  return Object.keys(nodeStore.nodes).some(
+    (id) => goalStore.goalsForNode(id).length > 0,
+  )
+}
+
+function collapseAllGoals() {
+  const nodesWithGoals = Object.keys(nodeStore.nodes).filter(
+    (id) => goalStore.goalsForNode(id).length > 0,
+  )
+  collapsedGoalNodes.value = new Set(nodesWithGoals)
+  for (const id of nodesWithGoals) resizeNodeToContent(id)
+}
+
+function expandAllGoals() {
+  const was = [...collapsedGoalNodes.value]
+  collapsedGoalNodes.value = new Set()
+  for (const id of was) resizeNodeToContent(id)
+}
 
 function goHome() {
   const positions = nodePositions.value
@@ -1186,6 +1265,7 @@ function goHome() {
           <div
             xmlns="http://www.w3.org/1999/xhtml"
             class="node-wrapper"
+            :ref="(el) => setWrapperRef(nodeId, el as HTMLElement | null)"
             :class="{
               dragging: dragState.draggingNodeId === nodeId,
               'drop-target-valid':
@@ -1199,6 +1279,7 @@ function goHome() {
             <NodeComponent
               :node-id="nodeId"
               :is-collapsed="collapsedNodes.has(nodeId)"
+              :goals-visible="!collapsedGoalNodes.has(nodeId)"
               @drag-start="onDragStart"
               @drag-end="onDragEnd"
               @drop="onDrop"
@@ -1207,6 +1288,7 @@ function goHome() {
               @edit="openEditNode"
               @delete="onDeleteNode"
               @toggle-collapse="toggleCollapse"
+              @goals-toggled="onGoalsToggled"
             />
           </div>
         </foreignObject>
@@ -1440,7 +1522,7 @@ function goHome() {
 
 .node-wrapper {
   width: 100%;
-  height: 100%;
+  height: auto;
   box-sizing: border-box;
   border: 1px solid #ccc;
   border-radius: 6px;

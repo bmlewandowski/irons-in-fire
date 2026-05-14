@@ -8,6 +8,7 @@ import GoalCard from './GoalCard.vue'
 const props = defineProps<{
   nodeId: string
   isCollapsed?: boolean
+  goalsVisible?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -19,6 +20,7 @@ const emit = defineEmits<{
   'edit': [nodeId: string]
   'delete': [nodeId: string]
   'toggle-collapse': [nodeId: string]
+  'goals-toggled': [nodeId: string]
 }>()
 
 // ── Stores ──────────────────────────────────────────────────────────────────
@@ -52,6 +54,11 @@ function onCancelDelete() {
 }
 
 // ── Goal tooltip ────────────────────────────────────────────────────────────
+// ── Goal expand/collapse ────────────────────────────────────────────────────
+function toggleGoals() {
+  emit('goals-toggled', props.nodeId)
+}
+
 const showGoalTooltip = ref(false)
 const tooltipStyle = ref({ top: '0px', left: '0px' })
 
@@ -99,17 +106,18 @@ function progressColor(pct: number): string {
             class="collapse-toggle-btn"
             :aria-label="props.isCollapsed ? 'Show child nodes' : 'Hide child nodes'"
             @click.stop="emit('toggle-collapse', props.nodeId)"
-          >{{ props.isCollapsed ? '\u25b6' : '\u25bc' }}</button>{{ node?.title }}</strong>
-        <div class="node-owner">{{ node?.ownerName }}</div>
+          >{{ props.isCollapsed ? '\u25b6' : '\u25bc' }}</button>{{ node?.ownerName }}</strong>
+        <div class="node-owner">{{ node?.title }}</div>
       </div>
       <!-- Goal icon: top-right, opposite drag handle (only when goals exist) -->
       <button
         v-if="goals.length > 0"
         class="goal-icon-btn"
-        :aria-label="`${goals.length} goal${goals.length !== 1 ? 's' : ''}`"
+        :class="{ 'goals-expanded': props.goalsVisible !== false }"
+        :aria-label="`${goals.length} goal${goals.length !== 1 ? 's' : ''}; click to ${props.goalsVisible !== false ? 'hide' : 'show'}`"
         @mouseenter="onGoalIconEnter"
         @mouseleave="onGoalIconLeave"
-        @click.stop
+        @click.stop="toggleGoals"
       >
         🎯
         <span v-if="goals.length" class="goal-badge">{{ goals.length }}</span>
@@ -124,15 +132,17 @@ function progressColor(pct: number): string {
       <button aria-label="Delete node" role="menuitem" @click="onDeleteClick">Delete</button>
     </div>
 
-    <!-- Goal cards -->
-    <GoalCard
-      v-for="goal in goals"
-      :key="goal.id"
-      :goal-id="goal.id"
-      @update-progress="(val) => goalStore.setProgress(goal.id, val)"
-      @update-status="(val) => goalStore.updateGoal(goal.id, { status: val })"
-      @delete="goalStore.deleteGoal(goal.id)"
-    />
+    <!-- Goal cards (toggled by clicking the 🎯 icon) -->
+    <template v-if="props.goalsVisible !== false">
+      <GoalCard
+        v-for="goal in goals"
+        :key="goal.id"
+        :goal-id="goal.id"
+        @update-progress="(val) => goalStore.setProgress(goal.id, val)"
+        @update-status="(val) => goalStore.updateGoal(goal.id, { status: val })"
+        @delete="goalStore.deleteGoal(goal.id)"
+      />
+    </template>
 
   </div>
 
@@ -189,10 +199,10 @@ function progressColor(pct: number): string {
 <style scoped>
 .node-component {
   width: 100%;
-  height: 100%;
+  height: auto;
   box-sizing: border-box;
   font-size: 0.8rem;
-  overflow: auto;
+  overflow: visible;
 }
 
 .node-header {
@@ -268,15 +278,25 @@ function progressColor(pct: number): string {
   position: relative;
   background: none;
   border: none;
-  padding: 0 2px;
+  padding: 1px 3px;
   font-size: 0.95rem;
-  cursor: default;
+  cursor: pointer;
   flex-shrink: 0;
   line-height: 1;
   display: flex;
   align-items: center;
   gap: 2px;
   color: inherit;
+  border-radius: 3px;
+  transition: background 0.15s;
+}
+
+.goal-icon-btn:hover {
+  background: rgba(0, 0, 0, 0.07);
+}
+
+.goal-icon-btn.goals-expanded {
+  background: rgba(21, 101, 192, 0.1);
 }
 
 .goal-badge {

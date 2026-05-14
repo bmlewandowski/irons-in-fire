@@ -46,6 +46,18 @@ const hasNodes = computed(() => Object.keys(nodeStore.nodes).length > 0)
         <button v-if="hasNodes" class="header-btn" aria-label="Clean up layout" @click="orgChartRef?.relayoutNodes()">
           ⬜ Clean Up
         </button>
+        <button
+          v-if="hasNodes"
+          class="header-btn"
+          aria-label="Collapse all goal cards"
+          @click="orgChartRef?.collapseAllGoals()"
+        >Collapse All</button>
+        <button
+          v-if="hasNodes"
+          class="header-btn"
+          aria-label="Expand all goal cards"
+          @click="orgChartRef?.expandAllGoals()"
+        >Expand All</button>
         <button v-if="hasNodes" class="header-btn header-btn--muted" aria-label="Reset layout" @click="orgChartRef && (orgChartRef.showResetConfirm = true)">
           ↺ Reset Layout
         </button>
