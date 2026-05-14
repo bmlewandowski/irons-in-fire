@@ -39,6 +39,8 @@ const hasNodes = computed(() => Object.keys(nodeStore.nodes).length > 0)
         <button v-if="hasNodes" class="header-btn" aria-label="Go to home position" @click="orgChartRef?.goHome()">
           ⌂ Home
         </button>
+        <button v-if="hasNodes" class="header-btn" aria-label="Zoom in" @click="orgChartRef?.zoomIn()">+ Zoom</button>
+        <button v-if="hasNodes" class="header-btn" aria-label="Zoom out" @click="orgChartRef?.zoomOut()">− Zoom</button>
         <div v-if="hasNodes" class="header-divider"></div>
         <button class="header-btn" aria-label="Add node" @click="orgChartRef?.openCreateRoot()">
           + Add Node
@@ -46,6 +48,18 @@ const hasNodes = computed(() => Object.keys(nodeStore.nodes).length > 0)
         <button v-if="hasNodes" class="header-btn" aria-label="Clean up layout" @click="orgChartRef?.relayoutNodes()">
           ⬜ Clean Up
         </button>
+        <button
+          v-if="orgChartRef?.canUndo"
+          class="header-btn"
+          aria-label="Undo last action (Ctrl+Z)"
+          @click="orgChartRef?.undo()"
+        >↩ Undo</button>
+        <button
+          v-if="orgChartRef?.canRedo"
+          class="header-btn"
+          aria-label="Redo last undone action (Ctrl+Shift+Z)"
+          @click="orgChartRef?.redo()"
+        >↪ Redo</button>
         <button
           v-if="hasNodes"
           class="header-btn"

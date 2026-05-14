@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import type { Goal } from '@/models'
 import type { GoalService } from '@/services/GoalService'
 
@@ -28,9 +28,23 @@ export const useGoalStore = defineStore('goal', () => {
 
   // ── Getters ────────────────────────────────────────────────────────────────
 
-  /** All goals owned by the given node. */
+  /**
+   * O(1) index: nodeId → goals owned by that node.
+   * Recomputed only when the goals map reference changes.
+   */
+  const goalsByNodeId = computed<Map<string, Goal[]>>(() => {
+    const map = new Map<string, Goal[]>()
+    for (const goal of Object.values(goals.value)) {
+      let bucket = map.get(goal.nodeId)
+      if (!bucket) { bucket = []; map.set(goal.nodeId, bucket) }
+      bucket.push(goal)
+    }
+    return map
+  })
+
+  /** All goals owned by the given node — O(1) via index. */
   function goalsForNode(nodeId: string): Goal[] {
-    return Object.values(goals.value).filter((g) => g.nodeId === nodeId)
+    return goalsByNodeId.value.get(nodeId) ?? []
   }
 
   /** Look up a single goal by its ID. */

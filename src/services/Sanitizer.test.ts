@@ -125,6 +125,27 @@ describe('Sanitizer', () => {
     it('returns false for <img> tag', () => {
       expect(s.isSafe('<img src=x onerror=alert(1)>')).toBe(false)
     })
+
+    // url() false-positive regression
+    it('returns true for plain text containing "url ("', () => {
+      expect(s.isSafe('See url (below) for details')).toBe(true)
+    })
+
+    it('returns true for plain text containing "url(" without a scheme', () => {
+      expect(s.isSafe('Upload the url(link) here')).toBe(true)
+    })
+
+    it('returns false for url(javascript:…) — CSS injection vector', () => {
+      expect(s.isSafe('background:url(javascript:alert(1))')).toBe(false)
+    })
+
+    it('returns false for url(data:…) — CSS injection vector', () => {
+      expect(s.isSafe('background:url(data:text/html,<h1>xss</h1>)')).toBe(false)
+    })
+
+    it('returns false for url( vbscript:…) with spaces', () => {
+      expect(s.isSafe('url( vbscript:msgbox(1))')).toBe(false)
+    })
   })
 
   // -----------------------------------------------------------------------

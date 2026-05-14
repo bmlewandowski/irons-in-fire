@@ -9,23 +9,58 @@
   <!-- Summary view -->
   <div v-else class="executive-dashboard" data-testid="executive-dashboard">
     <div class="dashboard-heading">
-      <h2>Executive Dashboard</h2>
-      <p class="dashboard-subtitle">Top-level goals — click any card to see the hierarchical breakdown</p>
+      <div class="heading-top">
+        <h2>Executive Dashboard</h2>
+        <!-- Scope picker -->
+        <div class="scope-picker" v-if="allNodes.length > 0">
+          <label for="scope-select" class="scope-label">Scope:</label>
+          <select
+            id="scope-select"
+            v-model="scopeNodeId"
+            class="scope-select"
+            aria-label="Filter goals by subtree"
+          >
+            <option :value="null">All top-level goals</option>
+            <option v-for="node in allNodes" :key="node.id" :value="node.id">
+              {{ node.title }} · {{ node.ownerName }}
+            </option>
+          </select>
+          <button
+            v-if="scopeNodeId"
+            class="scope-clear"
+            aria-label="Clear scope filter"
+            @click="scopeNodeId = null"
+          >✕</button>
+        </div>
+      </div>
+      <p class="dashboard-subtitle">
+        <template v-if="scopeLabel">
+          Goals in subtree of <strong>{{ scopeLabel }}</strong> — click any card to see the hierarchical breakdown
+        </template>
+        <template v-else>
+          Top-level goals — click any card to see the hierarchical breakdown
+        </template>
+      </p>
     </div>
 
     <!-- Empty state -->
     <div
-      v-if="dashboardStore.rootGoals.length === 0"
+      v-if="scopedGoals.length === 0"
       class="empty-state"
       data-testid="dashboard-empty-state"
     >
-      No top-level goals yet. Create a root node, select it, and use "Add Goal" to get started.
+      <template v-if="scopeNodeId">
+        No root goals in this subtree. Select a node with goals or clear the scope filter.
+      </template>
+      <template v-else>
+        No top-level goals yet. Create a root node, select it, and use "Add Goal" to get started.
+      </template>
     </div>
 
     <!-- Root goal cards -->
     <div v-else class="goal-grid">
       <button
-        v-for="goal in dashboardStore.rootGoals"
+        v-for="goal in scopedGoals"
         :key="goal.id"
         class="goal-card"
         data-testid="goal-indicator"
@@ -86,17 +121,33 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useDashboardStore } from '@/stores/dashboardStore'
 import { useGoalStore } from '@/stores/goalStore'
 import { useNodeStore } from '@/stores/nodeStore'
 import DrillDownPanel from './DrillDownPanel.vue'
+import { progressColor } from '@/composables/useProgressColor'
 
 const dashboardStore = useDashboardStore()
 const goalStore = useGoalStore()
 const nodeStore = useNodeStore()
 
 const selectedGoalId = ref<string | null>(null)
+const scopeNodeId = ref<string | null>(null)
+
+/** Nodes available for scope selection, sorted alphabetically by title. */
+const allNodes = computed(() =>
+  Object.values(nodeStore.nodes).sort((a, b) => a.title.localeCompare(b.title))
+)
+
+/** Goals shown in the grid — scoped to a subtree when scopeNodeId is set. */
+const scopedGoals = computed(() => dashboardStore.goalsForScope(scopeNodeId.value))
+
+const scopeLabel = computed(() => {
+  if (!scopeNodeId.value) return null
+  const n = nodeStore.nodes[scopeNodeId.value]
+  return n ? `${n.title} · ${n.ownerName}` : null
+})
 
 function nodeLabel(nodeId: string): string {
   const n = nodeStore.nodes[nodeId]
@@ -107,12 +158,7 @@ function childCount(goalId: string): number {
   return Object.values(goalStore.goals).filter((g) => g.sourceGoalId === goalId).length
 }
 
-function ringColor(pct: number): string {
-  if (pct >= 80) return '#2e7d32'
-  if (pct >= 50) return '#1565c0'
-  if (pct >= 25) return '#e65100'
-  return '#b71c1c'
-}
+const ringColor = progressColor
 
 function statusClass(status: string): string {
   if (status === 'Complete') return 'badge-complete'
@@ -135,6 +181,58 @@ function statusClass(status: string): string {
   margin: 0 0 0.25rem;
   font-size: 1.4rem;
   color: #1a1a2e;
+}
+
+.heading-top {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.scope-picker {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+}
+
+.scope-label {
+  font-size: 0.8rem;
+  color: #555;
+  white-space: nowrap;
+}
+
+.scope-select {
+  font-size: 0.82rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #fff;
+  color: #1a1a2e;
+  max-width: 220px;
+  cursor: pointer;
+}
+
+.scope-select:focus {
+  outline: 2px solid #3b5bdb;
+  outline-offset: 1px;
+}
+
+.scope-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: #888;
+  padding: 0.2rem 0.35rem;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.scope-clear:hover {
+  background: #eee;
+  color: #c00;
 }
 
 .dashboard-subtitle {
@@ -290,122 +388,5 @@ function statusClass(status: string): string {
   color: #1565c0;
   text-align: right;
   font-weight: 500;
-}
-</style>
-
-
-<style scoped>
-.executive-dashboard {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  padding: 1.5rem;
-  background-color: #f8f9fa;
-  border-radius: 8px;
-  min-height: 200px;
-}
-
-.exit-drilldown {
-  align-self: flex-start;
-  padding: 0.5rem 1rem;
-  background-color: #6c757d;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: background-color 0.2s ease;
-}
-
-.exit-drilldown:hover {
-  background-color: #5a6268;
-}
-
-.exit-drilldown:focus-visible {
-  outline: 2px solid #0d6efd;
-  outline-offset: 2px;
-}
-
-.empty-state {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-  color: #6c757d;
-  font-size: 1rem;
-  font-style: italic;
-  text-align: center;
-  padding: 2rem;
-}
-
-.goal-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-}
-
-.goal-indicator {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: 1rem;
-  background-color: #fff;
-  border: 1px solid #dee2e6;
-  border-radius: 8px;
-  cursor: pointer;
-  min-width: 180px;
-  max-width: 240px;
-  flex: 1;
-  transition: box-shadow 0.2s ease, border-color 0.2s ease;
-}
-
-.goal-indicator:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-  border-color: #0d6efd;
-}
-
-.goal-indicator:focus-visible {
-  outline: 2px solid #0d6efd;
-  outline-offset: 2px;
-}
-
-.goal-description {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #212529;
-  line-height: 1.4;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-
-.progress-ring-track {
-  position: relative;
-  width: 100%;
-  height: 10px;
-  background-color: #e9ecef;
-  border-radius: 5px;
-  overflow: hidden;
-}
-
-.progress-ring-fill {
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  background-color: #0d6efd;
-  border-radius: 5px;
-  transition: width 0.3s ease;
-  min-width: 0;
-  max-width: 100%;
-}
-
-.progress-label {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: #495057;
-  text-align: right;
 }
 </style>

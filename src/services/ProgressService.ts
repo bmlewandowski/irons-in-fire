@@ -1,5 +1,6 @@
 import type { Goal } from '@/models/Goal'
 import type { useGoalStore } from '@/stores/goalStore'
+import { computeWeightedProgress } from '@/composables/useProgressColor'
 
 /**
  * Service responsible for computing and rolling up progress percentages
@@ -28,19 +29,7 @@ export class ProgressService {
    * Requirements: 5.2, 5.7, 5.8, 10.2
    */
   computeWeightedAverage(children: Goal[]): number {
-    let weightedSum = 0
-    let totalWeight = 0
-
-    for (const child of children) {
-      const w = typeof child.weight === 'number' && isFinite(child.weight) ? child.weight : 0
-      weightedSum += w * child.progress
-      totalWeight += w
-    }
-
-    if (totalWeight === 0) return 0
-
-    const result = weightedSum / totalWeight
-    return Math.min(100, Math.max(0, result))
+    return computeWeightedProgress(children)
   }
 
   // -------------------------------------------------------------------------

@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useGoalStore } from '@/stores/goalStore'
 import type { GoalStatus } from '@/models'
+import { progressColor } from '@/composables/useProgressColor'
 
 // ── Props & Emits ───────────────────────────────────────────────────────────
 const props = defineProps<{ goalId: string }>()
@@ -23,12 +24,7 @@ const sourceGoal = computed(() => {
   return goalStore.goals[goal.value.sourceGoalId]
 })
 
-function progressColor(pct: number): string {
-  if (pct >= 80) return '#2e7d32'
-  if (pct >= 50) return '#1565c0'
-  if (pct >= 25) return '#e65100'
-  return '#b71c1c'
-}
+
 
 const showDeleteConfirm = ref(false)
 

@@ -4,74 +4,43 @@ import { useNodeStore } from '@/stores/nodeStore'
 import { useGoalStore } from '@/stores/goalStore'
 import { useUiStore } from '@/stores/uiStore'
 import NodeComponent from './NodeComponent.vue'
+import type { RoleLevel } from '@/models'
+import type { GoalType, GoalStatus } from '@/models'
+import { sanitizer } from '@/services/Sanitizer'
+import { validateCreateNodeInput, validateCreateGoalInput } from '@/services/ValidationService'
+import { useCanvasTransform } from '@/composables/useCanvasTransform'
+import { useNodeModal, ROLE_LEVELS } from '@/composables/useNodeModal'
+import { useGoalModal } from '@/composables/useGoalModal'
+import { useUndoRedo } from '@/composables/useUndoRedo'
 
 // ── Stores ─────────────────────────────────────────────────────────────────
 const nodeStore = useNodeStore()
 const goalStore = useGoalStore()
 const uiStore = useUiStore()
 
-// ── Pan/Zoom State ──────────────────────────────────────────────────────────
-const transform = ref<{ x: number; y: number; scale: number }>({
-  x: 0,
-  y: 0,
-  scale: 1,
-})
-
-const isPanning = ref(false)
-const panStart = ref<{ x: number; y: number; tx: number; ty: number }>({
-  x: 0,
-  y: 0,
-  tx: 0,
-  ty: 0,
-})
-
+// ── Pan/Zoom Transform ──────────────────────────────────────────────────────
 const svgRef = ref<SVGSVGElement | null>(null)
-
-function onWheel(event: WheelEvent) {
-  event.preventDefault()
-  const scaleFactor = event.deltaY < 0 ? 1.1 : 0.9
-  const newScale = Math.min(Math.max(transform.value.scale * scaleFactor, 0.1), 5)
-
-  // Zoom toward the cursor position
-  const rect = (event.currentTarget as SVGSVGElement).getBoundingClientRect()
-  const mouseX = event.clientX - rect.left
-  const mouseY = event.clientY - rect.top
-
-  const dx = mouseX - transform.value.x
-  const dy = mouseY - transform.value.y
-
-  transform.value = {
-    x: transform.value.x + dx - (dx * newScale) / transform.value.scale,
-    y: transform.value.y + dy - (dy * newScale) / transform.value.scale,
-    scale: newScale,
-  }
-
-  updateViewport()
-}
-
-function onMouseDown(event: MouseEvent) {
-  // Only pan on left-click on the SVG background (not on nodes)
-  if (event.button !== 0) return
-  if ((event.target as Element).closest('.node-foreign-object')) return
-
-  isPanning.value = true
-  panStart.value = {
-    x: event.clientX,
-    y: event.clientY,
-    tx: transform.value.x,
-    ty: transform.value.y,
-  }
-}
+const {
+  transform,
+  transformString,
+  onWheel,
+  onMouseDown,
+  applyPanMove,
+  stopPan,
+  updateViewport,
+  zoomBy,
+} = useCanvasTransform(svgRef)
 
 function onMouseMove(event: MouseEvent) {
-  if (resizeState.value) {    const { nodeId, corner, startScreenX, startScreenY, startW, startH, startDx, startDy } = resizeState.value
+  if (resizeState.value) {
+    const { nodeId, corner, startScreenX, startScreenY, startW, startH, startX, startY } = resizeState.value
     const dX = (event.clientX - startScreenX) / transform.value.scale
     const dY = (event.clientY - startScreenY) / transform.value.scale
 
     let newW = startW
     let newH = startH
-    let newDx = startDx
-    let newDy = startDy
+    let newX = startX
+    let newY = startY
 
     if (corner === 'se') {
       newW = Math.max(MIN_NODE_WIDTH, startW + dX)
@@ -79,24 +48,24 @@ function onMouseMove(event: MouseEvent) {
     } else if (corner === 'sw') {
       newW = Math.max(MIN_NODE_WIDTH, startW - dX)
       newH = Math.max(MIN_NODE_HEIGHT, startH + dY)
-      newDx = startDx + (startW - newW)
+      newX = startX + (startW - newW)
     } else if (corner === 'ne') {
       newW = Math.max(MIN_NODE_WIDTH, startW + dX)
       newH = Math.max(MIN_NODE_HEIGHT, startH - dY)
-      newDy = startDy + (startH - newH)
+      newY = startY + (startH - newH)
     } else if (corner === 'nw') {
       newW = Math.max(MIN_NODE_WIDTH, startW - dX)
       newH = Math.max(MIN_NODE_HEIGHT, startH - dY)
-      newDx = startDx + (startW - newW)
-      newDy = startDy + (startH - newH)
+      newX = startX + (startW - newW)
+      newY = startY + (startH - newH)
     }
 
     const newSizeMap = new Map(nodeSizes.value)
     newSizeMap.set(nodeId, { width: newW, height: newH })
     nodeSizes.value = newSizeMap
 
-    const newOffsetMap = new Map(nodePositionOffsets.value)
-    newOffsetMap.set(nodeId, { dx: newDx, dy: newDy })
+    const newPositions = new Map(nodeAbsPositions.value)
+    newPositions.set(nodeId, { x: newX, y: newY })
 
     // Keep every descendant centred under the parent's new centre X, and
     // pushed down/up whenever the bottom edge moves (SE or SW).
@@ -106,37 +75,31 @@ function onMouseMove(event: MouseEvent) {
     const deltaCenterX = (corner === 'se' || corner === 'ne') ? deltaW / 2 : -deltaW / 2
     // Bottom edge only moves for SE and SW.
     const pushDown = (corner === 'se' || corner === 'sw') ? deltaH : 0
-    for (const [descId, descStart] of resizeState.value.startDescendantOffsets) {
-      newOffsetMap.set(descId, {
-        dx: descStart.dx + deltaCenterX,
-        dy: descStart.dy + pushDown,
+    for (const [descId, descStart] of resizeState.value.startDescendantPositions) {
+      newPositions.set(descId, {
+        x: descStart.x + deltaCenterX,
+        y: descStart.y + pushDown,
       })
     }
 
-    nodePositionOffsets.value = newOffsetMap
+    nodeAbsPositions.value = newPositions
     return
   }
   if (moveState.value) {
-    const { nodeId, startScreenX, startScreenY, startDx, startDy } = moveState.value
+    const { nodeId, startScreenX, startScreenY, startX, startY } = moveState.value
     const dX = (event.clientX - startScreenX) / transform.value.scale
     const dY = (event.clientY - startScreenY) / transform.value.scale
     if (!moveState.value.active && Math.hypot(dX, dY) < 4) return
     moveState.value.active = true
-    const newOffsetMap = new Map(nodePositionOffsets.value)
-    newOffsetMap.set(nodeId, { dx: startDx + dX, dy: startDy + dY })
-    for (const [descId, descStart] of moveState.value.startDescendantOffsets) {
-      newOffsetMap.set(descId, { dx: descStart.dx + dX, dy: descStart.dy + dY })
+    const newPositions = new Map(nodeAbsPositions.value)
+    newPositions.set(nodeId, { x: startX + dX, y: startY + dY })
+    for (const [descId, descStart] of moveState.value.startDescendantPositions) {
+      newPositions.set(descId, { x: descStart.x + dX, y: descStart.y + dY })
     }
-    nodePositionOffsets.value = newOffsetMap
+    nodeAbsPositions.value = newPositions
     return
   }
-  if (!isPanning.value) return
-  transform.value = {
-    ...transform.value,
-    x: panStart.value.tx + (event.clientX - panStart.value.x),
-    y: panStart.value.ty + (event.clientY - panStart.value.y),
-  }
-  updateViewport()
+  applyPanMove(event)
 }
 
 function onMouseUp() {
@@ -145,88 +108,46 @@ function onMouseUp() {
     suppressNextClick.value = true
   }
   moveState.value = null
-  isPanning.value = false
+  stopPan()
 }
 
-function updateViewport() {
-  if (!svgRef.value) return
-  const rect = svgRef.value.getBoundingClientRect()
-  // Convert screen viewport to canvas coordinates
-  const { x, y, scale } = transform.value
-  uiStore.updateViewport({
-    x: -x / scale,
-    y: -y / scale,
-    width: rect.width / scale,
-    height: rect.height / scale,
-  })
+function onKeyDown(event: KeyboardEvent) {
+  const ctrl = event.ctrlKey || event.metaKey
+  if (!ctrl) return
+  if (event.key === 'z' && !event.shiftKey) {
+    event.preventDefault()
+    undo()
+  } else if (event.key === 'z' && event.shiftKey) {
+    event.preventDefault()
+    redo()
+  } else if (event.key === 'y') {
+    event.preventDefault()
+    redo()
+  }
 }
 
 onMounted(() => {
   loadLayout()
+  // If no positions were persisted but nodes exist, run the size-aware layout
+  // so nodes don't appear at (0,0) before the first user interaction.
+  if (nodeAbsPositions.value.size === 0 && Object.keys(nodeStore.nodes).length > 0) {
+    nextTick(() => relayoutNodes())
+  }
   updateViewport()
   window.addEventListener('mouseup', onMouseUp)
   window.addEventListener('mousemove', onMouseMove)
+  window.addEventListener('keydown', onKeyDown)
 })
 
 onUnmounted(() => {
   window.removeEventListener('mouseup', onMouseUp)
   window.removeEventListener('mousemove', onMouseMove)
+  window.removeEventListener('keydown', onKeyDown)
 })
 
-// ── Node Layout Algorithm ───────────────────────────────────────────────────
+// ── Node Layout Constants ──────────────────────────────────────────────────
 const NODE_WIDTH = 180
 const NODE_HEIGHT = 100
-const LEVEL_HEIGHT = 120
-const SIBLING_SPACING = 200
-
-/**
- * Compute positions for all nodes using a simple recursive tree layout.
- * Root nodes start at y=0; each level adds y += 120.
- * Siblings are spaced x += 200 apart.
- */
-const nodePositions = computed<Map<string, { x: number; y: number }>>(() => {
-  const positions = new Map<string, { x: number; y: number }>()
-  const nodes = nodeStore.nodes
-
-  if (Object.keys(nodes).length === 0) return positions
-
-  // Find root nodes (no parent)
-  const rootNodes = Object.values(nodes).filter((n) => n.parentId === null)
-
-  let xCursor = 0
-
-  function layoutSubtree(nodeId: string, depth: number): number {
-    const children = nodeStore.childrenOf(nodeId)
-    const y = depth * LEVEL_HEIGHT
-
-    if (children.length === 0) {
-      // Leaf node: place at current xCursor
-      positions.set(nodeId, { x: xCursor, y })
-      const nodeX = xCursor
-      xCursor += SIBLING_SPACING
-      return nodeX
-    }
-
-    // Layout children first, then center parent over them
-    const firstChildX = xCursor
-    for (const child of children) {
-      layoutSubtree(child.id, depth + 1)
-    }
-    const lastChildX = xCursor - SIBLING_SPACING
-
-    // Center parent over its children
-    const parentX = (firstChildX + lastChildX) / 2
-    positions.set(nodeId, { x: parentX, y })
-    return parentX
-  }
-
-  for (const root of rootNodes) {
-    layoutSubtree(root.id, 0)
-    xCursor += SIBLING_SPACING // extra gap between root trees
-  }
-
-  return positions
-})
 
 // ── Lazy Viewport Rendering (Subtask 12.2) ──────────────────────────────────
 const LAZY_THRESHOLD = 51
@@ -271,8 +192,8 @@ const visibleNodes = computed<string[]>(() => {
   if (notHidden.length < LAZY_THRESHOLD) return notHidden
   // Only render nodes whose bounding box intersects the viewport
   return notHidden.filter((id) => {
-    const pos = nodePositions.value.get(id)
-    if (!pos) return false
+    const pos = nodeAbsPositions.value.get(id)
+    if (!pos) return true  // show un-positioned nodes (relayout pending)
     return intersectsViewport(pos)
   })
 })
@@ -281,7 +202,8 @@ const visibleNodes = computed<string[]>(() => {
 const MIN_NODE_WIDTH = 120
 const MIN_NODE_HEIGHT = 80
 const nodeSizes = ref(new Map<string, { width: number; height: number }>())
-const nodePositionOffsets = ref(new Map<string, { dx: number; dy: number }>())
+/** Absolute canvas positions for every node. Single source of truth — no base+offset split. */
+const nodeAbsPositions = ref(new Map<string, { x: number; y: number }>())
 
 // ── Layout persistence ─────────────────────────────────────────────────────
 const LAYOUT_STORAGE_KEY = 'irons-in-fire:layout'
@@ -290,8 +212,9 @@ function saveLayout() {
   try {
     const payload = JSON.stringify({
       sizes: [...nodeSizes.value.entries()],
-      offsets: [...nodePositionOffsets.value.entries()],
+      positions: [...nodeAbsPositions.value.entries()],
       collapsed: [...collapsedNodes.value],
+      collapsedGoals: [...collapsedGoalNodes.value],
     })
     localStorage.setItem(LAYOUT_STORAGE_KEY, payload)
   } catch {
@@ -303,10 +226,11 @@ function loadLayout() {
   try {
     const raw = localStorage.getItem(LAYOUT_STORAGE_KEY)
     if (!raw) return
-    const { sizes, offsets, collapsed } = JSON.parse(raw)
+    const { sizes, positions, collapsed, collapsedGoals } = JSON.parse(raw)
     if (Array.isArray(sizes)) nodeSizes.value = new Map(sizes)
-    if (Array.isArray(offsets)) nodePositionOffsets.value = new Map(offsets)
+    if (Array.isArray(positions)) nodeAbsPositions.value = new Map(positions)
     if (Array.isArray(collapsed)) collapsedNodes.value = new Set(collapsed)
+    if (Array.isArray(collapsedGoals)) collapsedGoalNodes.value = new Set(collapsedGoals)
   } catch {
     // corrupt data — ignore and start fresh
   }
@@ -314,25 +238,60 @@ function loadLayout() {
 
 function resetLayout() {
   nodeSizes.value = new Map()
-  nodePositionOffsets.value = new Map()
+  nodeAbsPositions.value = new Map()
   collapsedNodes.value = new Set()
   localStorage.removeItem(LAYOUT_STORAGE_KEY)
+  nextTick(() => relayoutNodes())
 }
 
 const showResetConfirm = ref(false)
 
+// ── Undo / Redo ────────────────────────────────────────────────────
+const { canUndo, canRedo, snapshot, undo, redo, clearHistory } = useUndoRedo({
+  getLayout: () => ({
+    sizes: [...nodeSizes.value.entries()],
+    positions: [...nodeAbsPositions.value.entries()],
+    collapsed: [...collapsedNodes.value],
+    collapsedGoals: [...collapsedGoalNodes.value],
+  }),
+  setLayout: (layout) => {
+    nodeSizes.value = new Map(layout.sizes)
+    nodeAbsPositions.value = new Map(layout.positions)
+    collapsedNodes.value = new Set(layout.collapsed)
+    collapsedGoalNodes.value = new Set(layout.collapsedGoals)
+  },
+  saveLayout,
+})
+
 // ── Export / Import ────────────────────────────────────────────────────────
 
+const IMPORT_MAX_BYTES = 5 * 1024 * 1024   // 5 MB
+const IMPORT_MAX_NODES = 5_000
+const IMPORT_MAX_GOALS = 25_000
+const VALID_IMPORT_ROLE_LEVELS = new Set<string>([
+  'CEO/President', 'Vice President', 'Executive', 'Director', 'Manager',
+  'Supervisor', 'Lead', 'Employee', 'Contractor', 'Custom',
+])
+const VALID_IMPORT_GOAL_TYPES = new Set<string>(['Root', 'Refined', 'Sub_Task'])
+const VALID_IMPORT_GOAL_STATUSES = new Set<string>(['Active', 'Refined', 'Complete'])
+
 const importFileInput = ref<HTMLInputElement | null>(null)
-const importPayload = ref<{ nodes: unknown[]; goals: unknown[] } | null>(null)
+type ImportLayout = { sizes: [string, { width: number; height: number }][]; positions: [string, { x: number; y: number }][]; collapsed: string[]; collapsedGoals: string[] }
+const importPayload = ref<{ nodes: import('@/models').OrgNode[]; goals: import('@/models').Goal[]; layout?: ImportLayout } | null>(null)
 const importError = ref<string | null>(null)
 
 function exportData() {
   const payload = {
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     nodes: Object.values(nodeStore.nodes),
     goals: Object.values(goalStore.goals),
+    layout: {
+      sizes: [...nodeSizes.value.entries()],
+      positions: [...nodeAbsPositions.value.entries()],
+      collapsed: [...collapsedNodes.value],
+      collapsedGoals: [...collapsedGoalNodes.value],
+    },
   }
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
@@ -347,6 +306,12 @@ function onImportFileChange(event: Event) {
   importError.value = null
   const file = (event.target as HTMLInputElement).files?.[0]
   if (!file) return
+  // S3: hard cap on file size before reading into memory
+  if (file.size > IMPORT_MAX_BYTES) {
+    importError.value = `File is too large (${(file.size / 1_048_576).toFixed(1)} MB). Maximum size is 5 MB.`
+    if (importFileInput.value) importFileInput.value.value = ''
+    return
+  }
   const reader = new FileReader()
   reader.onload = (e) => {
     try {
@@ -355,7 +320,112 @@ function onImportFileChange(event: Event) {
         importError.value = 'Invalid file: must contain "nodes" and "goals" arrays.'
         return
       }
-      importPayload.value = { nodes: parsed.nodes, goals: parsed.goals }
+      // S3: array length caps
+      if (parsed.nodes.length > IMPORT_MAX_NODES) {
+        importError.value = `Too many nodes in file (max ${IMPORT_MAX_NODES.toLocaleString()}).`
+        return
+      }
+      if (parsed.goals.length > IMPORT_MAX_GOALS) {
+        importError.value = `Too many goals in file (max ${IMPORT_MAX_GOALS.toLocaleString()}).`
+        return
+      }
+
+      // S1: validate and sanitize every record before accepting the payload
+      const errors: string[] = []
+      const cleanNodes: import('@/models').OrgNode[] = []
+      const cleanGoals: import('@/models').Goal[] = []
+      const nodeIdSet = new Set<string>()
+      const goalIdSet = new Set<string>()
+
+      for (const raw of parsed.nodes) {
+        if (typeof raw !== 'object' || raw === null) { errors.push('A node record is not an object.'); continue }
+        const r = raw as Record<string, unknown>
+        if (typeof r.id !== 'string' || !r.id.trim()) { errors.push('A node is missing a valid id.'); continue }
+        const shortId = (r.id as string).slice(0, 8)
+        if (nodeIdSet.has(r.id as string)) { errors.push(`Duplicate node id: ${shortId}.`); continue }
+        if (r.parentId !== null && typeof r.parentId !== 'string') { errors.push(`Node ${shortId}: parentId must be a string or null.`); continue }
+        if (!VALID_IMPORT_ROLE_LEVELS.has(r.roleLevel as string)) { errors.push(`Node ${shortId}: invalid roleLevel.`); continue }
+        if (typeof r.title !== 'string' || typeof r.ownerName !== 'string') { errors.push(`Node ${shortId}: title and ownerName must be strings.`); continue }
+        const nodeFieldErrors = validateCreateNodeInput({
+          title: r.title as string,
+          ownerName: r.ownerName as string,
+          roleLevel: r.roleLevel as RoleLevel,
+          customRoleLabel: typeof r.customRoleLabel === 'string' ? r.customRoleLabel : undefined,
+          parentId: (r.parentId as string | null) ?? null,
+        })
+        if (nodeFieldErrors.length > 0) { errors.push(`Node ${shortId}: ${nodeFieldErrors[0].message}`); continue }
+        nodeIdSet.add(r.id as string)
+        cleanNodes.push({
+          id: r.id as string,
+          parentId: (r.parentId as string | null) ?? null,
+          title: sanitizer.sanitize(r.title as string),
+          ownerName: sanitizer.sanitize(r.ownerName as string),
+          roleLevel: r.roleLevel as RoleLevel,
+          customRoleLabel: typeof r.customRoleLabel === 'string'
+            ? sanitizer.sanitize(r.customRoleLabel)
+            : undefined,
+          createdAt: typeof r.createdAt === 'string' ? r.createdAt : new Date().toISOString(),
+          updatedAt: typeof r.updatedAt === 'string' ? r.updatedAt : new Date().toISOString(),
+        })
+      }
+
+      for (const raw of parsed.goals) {
+        if (typeof raw !== 'object' || raw === null) { errors.push('A goal record is not an object.'); continue }
+        const r = raw as Record<string, unknown>
+        if (typeof r.id !== 'string' || !r.id.trim()) { errors.push('A goal is missing a valid id.'); continue }
+        const shortId = (r.id as string).slice(0, 8)
+        if (goalIdSet.has(r.id as string)) { errors.push(`Duplicate goal id: ${shortId}.`); continue }
+        if (typeof r.nodeId !== 'string' || !nodeIdSet.has(r.nodeId)) { errors.push(`Goal ${shortId}: nodeId references an unknown node.`); continue }
+        if (!VALID_IMPORT_GOAL_TYPES.has(r.type as string)) { errors.push(`Goal ${shortId}: invalid type.`); continue }
+        if (!VALID_IMPORT_GOAL_STATUSES.has(r.status as string)) { errors.push(`Goal ${shortId}: invalid status.`); continue }
+        if (typeof r.description !== 'string') { errors.push(`Goal ${shortId}: description must be a string.`); continue }
+        if (typeof r.weight !== 'number' || typeof r.progress !== 'number') { errors.push(`Goal ${shortId}: weight and progress must be numbers.`); continue }
+        if (r.sourceGoalId !== undefined && r.sourceGoalId !== null && typeof r.sourceGoalId !== 'string') {
+          errors.push(`Goal ${shortId}: sourceGoalId must be a string or absent.`); continue
+        }
+        const goalFieldErrors = validateCreateGoalInput({
+          nodeId: r.nodeId as string,
+          type: r.type as GoalType,
+          description: r.description as string,
+          weight: r.weight as number,
+          status: r.status as GoalStatus,
+          sourceGoalId: typeof r.sourceGoalId === 'string' ? r.sourceGoalId : undefined,
+        })
+        if (goalFieldErrors.length > 0) { errors.push(`Goal ${shortId}: ${goalFieldErrors[0].message}`); continue }
+        goalIdSet.add(r.id as string)
+        cleanGoals.push({
+          id: r.id as string,
+          nodeId: r.nodeId as string,
+          type: r.type as GoalType,
+          description: sanitizer.sanitize(r.description as string),
+          weight: r.weight as number,
+          status: r.status as GoalStatus,
+          progress: Math.min(100, Math.max(0, r.progress as number)),
+          sourceGoalId: typeof r.sourceGoalId === 'string' ? r.sourceGoalId : undefined,
+          createdAt: typeof r.createdAt === 'string' ? r.createdAt : new Date().toISOString(),
+          updatedAt: typeof r.updatedAt === 'string' ? r.updatedAt : new Date().toISOString(),
+        })
+      }
+
+      if (errors.length > 0) {
+        importError.value = `Import rejected — ${errors.length} invalid record(s). First error: ${errors[0]}`
+        return
+      }
+
+      // Carry optional layout from file (validated structurally below)
+      let importedLayout: ImportLayout | undefined
+      const rawLayout = parsed.layout
+      if (
+        rawLayout &&
+        typeof rawLayout === 'object' &&
+        Array.isArray(rawLayout.sizes) &&
+        Array.isArray(rawLayout.positions) &&
+        Array.isArray(rawLayout.collapsed) &&
+        Array.isArray(rawLayout.collapsedGoals)
+      ) {
+        importedLayout = rawLayout as ImportLayout
+      }
+      importPayload.value = { nodes: cleanNodes, goals: cleanGoals, layout: importedLayout }
     } catch {
       importError.value = 'Could not parse file as JSON.'
     }
@@ -367,10 +437,31 @@ function onImportFileChange(event: Event) {
 
 function confirmImport() {
   if (!importPayload.value) return
-  localStorage.setItem('irons-in-fire:nodes', JSON.stringify(importPayload.value.nodes))
-  localStorage.setItem('irons-in-fire:goals', JSON.stringify(importPayload.value.goals))
+  snapshot()
+  const { nodes: newNodes, goals: newGoals, layout: newLayout } = importPayload.value
   importPayload.value = null
-  window.location.reload()
+  // Persist validated, sanitized data and patch stores reactively — no reload needed
+  localStorage.setItem('irons-in-fire:nodes', JSON.stringify(newNodes))
+  localStorage.setItem('irons-in-fire:goals', JSON.stringify(newGoals))
+  nodeStore.$patch({ nodes: Object.fromEntries(newNodes.map(n => [n.id, n])) })
+  goalStore.$patch({ goals: Object.fromEntries(newGoals.map(g => [g.id, g])) })
+  if (newLayout) {
+    // Restore layout from the imported file
+    try {
+      nodeSizes.value = new Map(newLayout.sizes)
+      nodeAbsPositions.value = new Map(newLayout.positions)
+      collapsedNodes.value = new Set(newLayout.collapsed)
+      collapsedGoalNodes.value = new Set(newLayout.collapsedGoals)
+      saveLayout()
+    } catch {
+      resetLayout()
+    }
+  } else {
+    resetLayout()
+  }
+  // Import replaces the dataset entirely; clear redo stack so future undoes
+  // don't reference stale data from a different dataset.
+  clearHistory()
 }
 
 function cancelImport() {
@@ -381,7 +472,7 @@ function cancelImport() {
 // Auto-save whenever sizes, offsets, or collapse state changes (debounced).
 let _layoutSaveTimer: ReturnType<typeof setTimeout> | null = null
 watch(
-  [nodeSizes, nodePositionOffsets, collapsedNodes],
+  [nodeSizes, nodeAbsPositions, collapsedNodes],
   () => {
     if (_layoutSaveTimer !== null) clearTimeout(_layoutSaveTimer)
     _layoutSaveTimer = setTimeout(saveLayout, 300)
@@ -393,16 +484,12 @@ function getNodeSize(nodeId: string): { width: number; height: number } {
   return nodeSizes.value.get(nodeId) ?? { width: NODE_WIDTH, height: NODE_HEIGHT }
 }
 
-function getNodeOffset(nodeId: string): { dx: number; dy: number } {
-  return nodePositionOffsets.value.get(nodeId) ?? { dx: 0, dy: 0 }
-}
-
 function getNodeX(nodeId: string): number {
-  return (nodePositions.value.get(nodeId)?.x ?? 0) + getNodeOffset(nodeId).dx
+  return nodeAbsPositions.value.get(nodeId)?.x ?? 0
 }
 
 function getNodeY(nodeId: string): number {
-  return (nodePositions.value.get(nodeId)?.y ?? 0) + getNodeOffset(nodeId).dy
+  return nodeAbsPositions.value.get(nodeId)?.y ?? 0
 }
 
 const resizeState = ref<{
@@ -412,32 +499,30 @@ const resizeState = ref<{
   startScreenY: number
   startW: number
   startH: number
-  startDx: number
-  startDy: number
-  // Snapshot of every descendant's offset at the moment resize began,
-  // used to push the whole family down/up as the bottom edge moves.
-  startDescendantOffsets: Map<string, { dx: number; dy: number }>
+  startX: number
+  startY: number
+  // Snapshot of every descendant's absolute position at the moment resize began.
+  startDescendantPositions: Map<string, { x: number; y: number }>
 } | null>(null)
 
 function startResize(event: MouseEvent, nodeId: string, corner: 'se' | 'sw' | 'ne' | 'nw') {
   event.stopPropagation()
   event.preventDefault()
   const { width, height } = getNodeSize(nodeId)
-  const { dx, dy } = getNodeOffset(nodeId)
 
-  // Capture current offsets for all descendants (subtreeOf includes the node itself at index 0)
+  // Capture current absolute positions for all descendants
   const descendants = nodeStore.subtreeOf(nodeId).slice(1)
-  const startDescendantOffsets = new Map<string, { dx: number; dy: number }>()
+  const startDescendantPositions = new Map<string, { x: number; y: number }>()
   for (const desc of descendants) {
-    startDescendantOffsets.set(desc.id, { ...getNodeOffset(desc.id) })
+    startDescendantPositions.set(desc.id, { x: getNodeX(desc.id), y: getNodeY(desc.id) })
   }
 
   resizeState.value = {
     nodeId, corner,
     startScreenX: event.clientX, startScreenY: event.clientY,
     startW: width, startH: height,
-    startDx: dx, startDy: dy,
-    startDescendantOffsets,
+    startX: getNodeX(nodeId), startY: getNodeY(nodeId),
+    startDescendantPositions,
   }
 }
 
@@ -451,10 +536,10 @@ const moveState = ref<{
   nodeId: string
   startScreenX: number
   startScreenY: number
-  startDx: number
-  startDy: number
+  startX: number
+  startY: number
   active: boolean
-  startDescendantOffsets: Map<string, { dx: number; dy: number }>
+  startDescendantPositions: Map<string, { x: number; y: number }>
 } | null>(null)
 
 const suppressNextClick = ref(false)
@@ -464,20 +549,19 @@ function onNodeWrapperMouseDown(event: MouseEvent, nodeId: string) {
   const target = event.target as Element
   if (target.closest('button, input, select, textarea, [draggable="true"]')) return
   event.stopPropagation()
-  const { dx, dy } = getNodeOffset(nodeId)
   const moveDescendants = nodeStore.subtreeOf(nodeId).slice(1)
-  const startDescendantOffsets = new Map<string, { dx: number; dy: number }>()
+  const startDescendantPositions = new Map<string, { x: number; y: number }>()
   for (const desc of moveDescendants) {
-    startDescendantOffsets.set(desc.id, { ...getNodeOffset(desc.id) })
+    startDescendantPositions.set(desc.id, { x: getNodeX(desc.id), y: getNodeY(desc.id) })
   }
   moveState.value = {
     nodeId,
     startScreenX: event.clientX,
     startScreenY: event.clientY,
-    startDx: dx,
-    startDy: dy,
+    startX: getNodeX(nodeId),
+    startY: getNodeY(nodeId),
     active: false,
-    startDescendantOffsets,
+    startDescendantPositions,
   }
 }
 
@@ -486,7 +570,7 @@ function onNodeWrapperClick(nodeId: string) {
     suppressNextClick.value = false
     return
   }
-  nodeStore.selectedNodeId = nodeId
+  nodeStore.selectNode(nodeId)
 }
 
 // ── Drag-and-Drop State (Subtask 12.3) ──────────────────────────────────────
@@ -524,7 +608,7 @@ function onDragStart(nodeId: string) {
   const node = nodeStore.nodes[nodeId]
   if (!node) return
 
-  const pos = nodePositions.value.get(nodeId)
+  const pos = nodeAbsPositions.value.get(nodeId)
   dragState.value = {
     draggingNodeId: nodeId,
     originalParentId: node.parentId,
@@ -550,6 +634,7 @@ async function onDrop(targetNodeId: string) {
     return
   }
 
+  snapshot()
   try {
     await nodeStore.reparentNode(draggingId, targetNodeId)
     // Success: clear drag state
@@ -613,7 +698,8 @@ function onDeleteNode(nodeId: string) {
       grandparentId: node?.parentId ?? null,
     }
   } else {
-    // No children: delete directly
+    // No children: snapshot then delete directly
+    snapshot()
     nodeStore.deleteNode(nodeId).catch((err) => {
       uiStore.addNotification({
         id: crypto.randomUUID(),
@@ -631,6 +717,7 @@ async function confirmDeleteNode() {
   if (!confirmDelete.value) return
   const { nodeId } = confirmDelete.value
   confirmDelete.value = null
+  snapshot()
   try {
     await nodeStore.deleteNode(nodeId)
   } catch (err) {
@@ -653,7 +740,7 @@ async function promoteAndDeleteNode() {
   if (!confirmDelete.value) return
   const { nodeId, grandparentId } = confirmDelete.value
   confirmDelete.value = null
-
+  snapshot()
   const directChildren = nodeStore.childrenOf(nodeId)
   try {
     // Reparent each direct child to the grandparent.
@@ -689,9 +776,8 @@ const LAYOUT_GAP_X = 24  // horizontal gap between sibling subtrees
 const LAYOUT_GAP_Y = 40  // vertical gap between parent bottom and children top
 
 /**
- * Re-computes positions using each node's actual (possibly user-resized) size,
- * then writes the results into nodePositionOffsets so that getNodeX/Y use the
- * new layout while keeping the base nodePositions intact.
+ * Re-computes positions using each node's actual (possibly user-resized) size
+ * and writes results directly into nodeAbsPositions.
  * Node sizes are preserved exactly as-is.
  *
  * Two-pass algorithm:
@@ -754,16 +840,8 @@ function relayoutNodes() {
     xStart += slot + LAYOUT_GAP_X * 2 // extra gap between separate root trees
   }
 
-  // Convert absolute positions to offsets relative to the default layout.
-  const newOffsetMap = new Map<string, { dx: number; dy: number }>()
-  for (const [nodeId, newPos] of newAbsPositions) {
-    const defaultPos = nodePositions.value.get(nodeId) ?? { x: 0, y: 0 }
-    newOffsetMap.set(nodeId, {
-      dx: newPos.x - defaultPos.x,
-      dy: newPos.y - defaultPos.y,
-    })
-  }
-  nodePositionOffsets.value = newOffsetMap
+  // Write absolute positions directly — no base-layout subtraction needed.
+  nodeAbsPositions.value = newAbsPositions
 }
 
 // ── Collapse/Expand children ──────────────────────────────────────────────
@@ -789,6 +867,12 @@ function toggleCollapse(nodeId: string) {
 // ── Goal inline expand/collapse ───────────────────────────────────────────
 /** Node IDs whose goal cards are currently hidden. */
 const collapsedGoalNodes = ref<Set<string>>(new Set())
+
+// Also auto-save when goal-panel collapse state changes.
+watch(collapsedGoalNodes, () => {
+  if (_layoutSaveTimer !== null) clearTimeout(_layoutSaveTimer)
+  _layoutSaveTimer = setTimeout(saveLayout, 300)
+}, { deep: true })
 
 /** Map from nodeId → the .node-wrapper HTMLElement for that node. */
 const nodeWrapperEls = new Map<string, HTMLElement>()
@@ -818,12 +902,12 @@ function resizeNodeToContent(nodeId: string) {
     // stays exactly the same.
     const descendants = nodeStore.subtreeOf(nodeId).slice(1)
     if (descendants.length === 0) return
-    const newOffsetMap = new Map(nodePositionOffsets.value)
+    const newPositions = new Map(nodeAbsPositions.value)
     for (const desc of descendants) {
-      const existing = newOffsetMap.get(desc.id) ?? { dx: 0, dy: 0 }
-      newOffsetMap.set(desc.id, { dx: existing.dx, dy: existing.dy + deltaH })
+      const existing = newPositions.get(desc.id) ?? { x: 0, y: 0 }
+      newPositions.set(desc.id, { x: existing.x, y: existing.y + deltaH })
     }
-    nodePositionOffsets.value = newOffsetMap
+    nodeAbsPositions.value = newPositions
   })
 }
 
@@ -890,61 +974,6 @@ function onDialogKeydown(event: KeyboardEvent) {
 }
 
 // ── Node Form Modal ──────────────────────────────────────────────────────────
-type NodeModalMode = 'create-root' | 'create-child' | 'edit'
-
-const nodeModal = ref<{
-  mode: NodeModalMode
-  parentId: string | null
-  editId: string | null
-  title: string
-  ownerName: string
-  roleLevel: string
-  customRoleLabel: string
-  error: string
-} | null>(null)
-
-const ROLE_LEVELS = ['CEO/President', 'Vice President', 'Executive', 'Director', 'Manager', 'Supervisor', 'Lead', 'Employee', 'Contractor', 'Custom']
-
-function openCreateRoot() {
-  nodeModal.value = {
-    mode: 'create-root',
-    parentId: null,
-    editId: null,
-    title: '',
-    ownerName: '',
-    roleLevel: 'Manager',
-    customRoleLabel: '',
-    error: '',
-  }
-}
-
-function openAddChild(parentId: string) {
-  nodeModal.value = {
-    mode: 'create-child',
-    parentId,
-    editId: null,
-    title: '',
-    ownerName: '',
-    roleLevel: 'Manager',
-    customRoleLabel: '',
-    error: '',
-  }
-}
-
-function openEditNode(nodeId: string) {
-  const node = nodeStore.nodes[nodeId]
-  if (!node) return
-  nodeModal.value = {
-    mode: 'edit',
-    parentId: node.parentId,
-    editId: nodeId,
-    title: node.title,
-    ownerName: node.ownerName,
-    roleLevel: node.roleLevel,
-    customRoleLabel: node.customRoleLabel ?? '',
-    error: '',
-  }
-}
 
 /**
  * After a child node is created, position it relative to its parent's
@@ -954,23 +983,27 @@ function openEditNode(nodeId: string) {
  * - ≥1 existing siblings: run the full clean-up layout so all children are
  *   neatly arranged (mirrors pressing the "Clean Up" button).
  */
-async function positionNewChild(childId: string, parentId: string, siblingCountBefore: number): Promise<void> {
-  // If the parent was collapsed, expand it so the new child is immediately visible
+async function positionNewChild(childId: string, parentId: string | null, siblingCountBefore: number): Promise<void> {
+  if (parentId === null) {
+    // New root node: run the full layout to place it alongside existing roots.
+    await nextTick()
+    relayoutNodes()
+    return
+  }
+
   if (collapsedNodes.value.has(parentId)) {
     const newSet = new Set(collapsedNodes.value)
     newSet.delete(parentId)
     collapsedNodes.value = newSet
   }
 
-  await nextTick() // wait for nodePositions to include the new node
+  await nextTick()
 
   if (siblingCountBefore >= 1) {
-    // Has siblings — run full clean-up to arrange them all
     relayoutNodes()
     return
   }
 
-  // First child — place centered directly below parent
   const parentX = getNodeX(parentId)
   const parentY = getNodeY(parentId)
   const { width: parentW, height: parentH } = getNodeSize(parentId)
@@ -979,149 +1012,38 @@ async function positionNewChild(childId: string, parentId: string, siblingCountB
   const targetX = parentX + (parentW - childW) / 2
   const targetY = parentY + parentH + LAYOUT_GAP_Y
 
-  const defaultPos = nodePositions.value.get(childId) ?? { x: 0, y: 0 }
-  const newOffsetMap = new Map(nodePositionOffsets.value)
-  newOffsetMap.set(childId, {
-    dx: targetX - defaultPos.x,
-    dy: targetY - defaultPos.y,
-  })
-  nodePositionOffsets.value = newOffsetMap
+  const newPositions = new Map(nodeAbsPositions.value)
+  newPositions.set(childId, { x: targetX, y: targetY })
+  nodeAbsPositions.value = newPositions
 }
 
-async function saveNode() {
-  if (!nodeModal.value) return
-  const { mode, parentId, editId, title, ownerName, roleLevel, customRoleLabel } = nodeModal.value
-
-  try {
-    if (mode === 'edit' && editId) {
-      await nodeStore.updateNode(editId, {
-        title,
-        ownerName,
-        roleLevel: roleLevel as any,
-        customRoleLabel: roleLevel === 'Custom' ? customRoleLabel : undefined,
-      })
-    } else {
-      // Snapshot sibling count before creation so positionNewChild knows which strategy to use
-      const siblingCountBefore = parentId ? nodeStore.childrenOf(parentId).length : 0
-      const newNode = await nodeStore.createNode({
-        title,
-        ownerName,
-        roleLevel: roleLevel as any,
-        customRoleLabel: roleLevel === 'Custom' ? customRoleLabel : undefined,
-        parentId: parentId ?? null,
-      })
-      if (mode === 'create-child' && parentId) {
-        positionNewChild(newNode.id, parentId, siblingCountBefore)
-      }
-    }
-    nodeModal.value = null
-  } catch (err) {
-    if (nodeModal.value) nodeModal.value.error = err instanceof Error ? err.message : 'An error occurred.'
-  }
-}
-
-function cancelNodeModal() {
-  nodeModal.value = null
-}
-
-const nodeModalRef = ref<HTMLElement | null>(null)
-
-watch(
-  () => nodeModal.value,
-  async (val) => {
-    if (val) {
-      await nextTick()
-      const first = nodeModalRef.value?.querySelector<HTMLElement>('input, select, button')
-      first?.focus()
-    }
-  },
-)
+const {
+  nodeModal,
+  nodeModalRef,
+  openCreateRoot,
+  openAddChild,
+  openEditNode,
+  saveNode,
+  cancelNodeModal,
+} = useNodeModal(positionNewChild)
 
 // ── Goal Form Modal ──────────────────────────────────────────────────────────
-const goalModal = ref<{
-  nodeId: string
-  description: string
-  weight: string
-  sourceGoalId: string
-  error: string
-} | null>(null)
-
-const goalModalRef = ref<HTMLElement | null>(null)
-
-/** Walk up the node ancestor chain and collect all goals from those nodes. */
-function ancestorGoals(nodeId: string): Array<{ id: string; label: string }> {
-  const results: Array<{ id: string; label: string }> = []
-  let current = nodeStore.nodes[nodeId]
-  while (current?.parentId) {
-    current = nodeStore.nodes[current.parentId]
-    if (!current) break
-    for (const g of goalStore.goalsForNode(current.id)) {
-      results.push({
-        id: g.id,
-        label: `[${current.title}] ${g.description.slice(0, 60)}${g.description.length > 60 ? '…' : ''}`,
-      })
-    }
-  }
-  return results
-}
-
-const goalModalAncestorGoals = computed(() =>
-  goalModal.value ? ancestorGoals(goalModal.value.nodeId) : []
-)
-
-function openAddGoal(nodeId: string) {
-  goalModal.value = { nodeId, description: '', weight: '1', sourceGoalId: '', error: '' }
-}
-
-async function saveGoal() {
-  if (!goalModal.value) return
-  const { nodeId, description, weight, sourceGoalId } = goalModal.value
-  const weightNum = parseFloat(weight)
-  const isRefined = sourceGoalId !== ''
-
-  try {
-    await goalStore.createGoal({
-      nodeId,
-      type: isRefined ? 'Refined' : 'Root',
-      description,
-      weight: weightNum,
-      status: 'Active',
-      progress: 0,
-      sourceGoalId: isRefined ? sourceGoalId : undefined,
-    })
-    goalModal.value = null
-  } catch (err) {
-    if (goalModal.value) goalModal.value.error = err instanceof Error ? err.message : 'An error occurred.'
-  }
-}
-
-function cancelGoalModal() {
-  goalModal.value = null
-}
-
-watch(
-  () => goalModal.value,
-  async (val) => {
-    if (val) {
-      await nextTick()
-      const first = goalModalRef.value?.querySelector<HTMLElement>('input, textarea, button')
-      first?.focus()
-    }
-  },
-)
+const {
+  goalModal,
+  goalModalRef,
+  goalModalAncestorGoals,
+  openAddGoal,
+  saveGoal,
+  cancelGoalModal,
+} = useGoalModal()
 
 // ── Computed helpers ─────────────────────────────────────────────────────────
 const isEmpty = computed(() => Object.keys(nodeStore.nodes).length === 0)
 
-const transformString = computed(
-  () =>
-    `translate(${transform.value.x},${transform.value.y}) scale(${transform.value.scale})`,
-)
-
 /** Edges: for each node with a parentId, draw a line from parent center to child center. */
 const edges = computed<Array<{ x1: number; y1: number; x2: number; y2: number; key: string }>>(() => {
-  // Access offsets so edges update when nodes are resized/moved
-  void nodePositionOffsets.value
+  // Access nodeAbsPositions so edges update when nodes are resized/moved
+  void nodeAbsPositions.value
   void nodeSizes.value
   const result = []
   for (const id of Object.keys(nodeStore.nodes)) {
@@ -1129,7 +1051,7 @@ const edges = computed<Array<{ x1: number; y1: number; x2: number; y2: number; k
     if (!node?.parentId) continue
     // Skip edges whose child node is hidden (descendant of a collapsed node)
     if (hiddenNodeIds.value.has(id)) continue
-    if (!nodePositions.value.has(id) || !nodePositions.value.has(node.parentId)) continue
+    if (!nodeAbsPositions.value.has(id) || !nodeAbsPositions.value.has(node.parentId)) continue
     const { width: pw, height: ph } = getNodeSize(node.parentId)
     const { width: cw, height: ch } = getNodeSize(id)
     result.push({
@@ -1155,6 +1077,12 @@ defineExpose({
   collapseAllGoals,
   expandAllGoals,
   hasGoals,
+  zoomIn: () => zoomBy(1.2),
+  zoomOut: () => zoomBy(1 / 1.2),
+  canUndo,
+  canRedo,
+  undo,
+  redo,
 })
 
 function hasGoals(): boolean {
@@ -1178,7 +1106,7 @@ function expandAllGoals() {
 }
 
 function goHome() {
-  const positions = nodePositions.value
+  const positions = nodeAbsPositions.value
   if (positions.size === 0) return
 
   // Find the leftmost root node
@@ -1392,9 +1320,9 @@ function goHome() {
   >
     <div class="confirm-delete-panel">
       <h2 id="confirm-import-title">Import Data</h2>
-      <p>This will <strong>replace all current nodes and goals</strong> with the imported data. The page will reload. This cannot be undone.</p>
+      <p>This will <strong>replace all current nodes and goals</strong> with the imported data. This cannot be undone.</p>
       <p class="import-summary">{{ importPayload.nodes.length }} node(s) and {{ importPayload.goals.length }} goal(s) will be imported.</p>
-      <button class="btn-danger" aria-label="Confirm import" @click="confirmImport">Import &amp; Reload</button>
+      <button class="btn-danger" aria-label="Confirm import" @click="confirmImport">Import</button>
       <button aria-label="Cancel import" @click="cancelImport">Cancel</button>
     </div>
   </div>

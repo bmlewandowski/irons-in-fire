@@ -28,7 +28,20 @@ export const useDashboardStore = defineStore('dashboard', () => {
     })
   )
 
+  /**
+   * Root goals owned by any node in the subtree of `nodeId`.
+   * Pass null to fall back to rootGoals (top-level only).
+   */
+  function goalsForScope(nodeId: string | null): Goal[] {
+    if (nodeId === null) return rootGoals.value
+    const subtreeIds = new Set(nodeStore.subtreeOf(nodeId).map((n) => n.id))
+    return Object.values(goals.value).filter(
+      (g) => g.type === 'Root' && subtreeIds.has(g.nodeId),
+    )
+  }
+
   return {
     rootGoals,
+    goalsForScope,
   }
 })

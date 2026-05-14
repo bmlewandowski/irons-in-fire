@@ -25,9 +25,10 @@ export const useUiStore = defineStore('ui', () => {
     drillDownGoalId.value = null
   }
 
-  /** Push a new notification into the list. */
+  /** Push a new notification into the list. Auto-dismisses after 5 s. */
   function addNotification(notification: Notification): void {
     notifications.value.push(notification)
+    setTimeout(() => dismissNotification(notification.id), 5000)
   }
 
   /** Remove a notification by its ID. */

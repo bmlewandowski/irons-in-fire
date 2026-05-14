@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { OrgNode } from '@/models'
 import type { NodeService } from '@/services/NodeService'
+export type { OrgNode }
 
 /**
  * Module-level reference to the NodeService instance.
@@ -34,9 +35,25 @@ export const useNodeStore = defineStore('node', () => {
     Object.values(nodes.value).filter((n) => n.parentId === null)
   )
 
-  /** Direct children of the given parent node. */
+  /**
+   * O(1) index: parentId → direct children list.
+   * Recomputed only when the nodes map reference changes.
+   */
+  const childrenByParentId = computed<Map<string, OrgNode[]>>(() => {
+    const map = new Map<string, OrgNode[]>()
+    for (const node of Object.values(nodes.value)) {
+      if (node.parentId !== null) {
+        let bucket = map.get(node.parentId)
+        if (!bucket) { bucket = []; map.set(node.parentId, bucket) }
+        bucket.push(node)
+      }
+    }
+    return map
+  })
+
+  /** Direct children of the given parent node — O(1) via index. */
   function childrenOf(parentId: string): OrgNode[] {
-    return Object.values(nodes.value).filter((n) => n.parentId === parentId)
+    return childrenByParentId.value.get(parentId) ?? []
   }
 
   /** The node itself plus all of its descendants (recursive). */
@@ -102,6 +119,10 @@ export const useNodeStore = defineStore('node', () => {
     if (!result.ok) throw new Error(result.error.message)
   }
 
+  function selectNode(nodeId: string | null): void {
+    selectedNodeId.value = nodeId
+  }
+
   return {
     // state
     nodes,
@@ -116,5 +137,6 @@ export const useNodeStore = defineStore('node', () => {
     deleteNode,
     reparentNode,
     promoteToRoot,
+    selectNode,
   }
 })

@@ -16,13 +16,16 @@ try {
   adapter = createAdapter()
 } catch (err) {
   if (err instanceof ConfigurationError) {
-    document.body.innerHTML = `
-      <div style="padding:2rem;font-family:sans-serif;color:#c00">
-        <h1>Configuration Error</h1>
-        <p>${err.message}</p>
-        <p>Set the <code>VITE_PERSISTENCE_ADAPTER</code> environment variable to <code>local</code> or <code>api</code>.</p>
-      </div>
-    `
+    const errDiv = document.createElement('div')
+    errDiv.style.cssText = 'padding:2rem;font-family:sans-serif;color:#c00'
+    const errH1 = document.createElement('h1')
+    errH1.textContent = 'Configuration Error'
+    const errP1 = document.createElement('p')
+    errP1.textContent = err.message
+    const errP2 = document.createElement('p')
+    errP2.textContent = 'Set the VITE_PERSISTENCE_ADAPTER environment variable to local or api.'
+    errDiv.append(errH1, errP1, errP2)
+    document.body.appendChild(errDiv)
     throw err  // prevent further execution
   }
   throw err

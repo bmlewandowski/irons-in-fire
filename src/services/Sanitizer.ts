@@ -46,8 +46,11 @@ export class Sanitizer {
     /<\s*(iframe|object|embed|form|input|img|svg|link|meta)\b/i,
     // expression( — CSS expression injection
     /expression\s*\(/i,
-    // url( — CSS url injection
-    /url\s*\(/i,
+    // url( with a dangerous scheme — css url injection
+    // Note: bare url( is intentionally NOT blocked here to avoid false positives
+    // on plain text like "see url (below)". The dangerous schemes (javascript:,
+    // data:, vbscript:) are already caught by the patterns above.
+    /url\s*\(\s*(?:javascript|data|vbscript)\s*:/i,
   ]
 
   /**
@@ -62,7 +65,7 @@ export class Sanitizer {
     /vbscript\s*:/i,
     /<\s*(iframe|object|embed|form|input|img|svg|link|meta)\b/i,
     /expression\s*\(/i,
-    /url\s*\(/i,
+    /url\s*\(\s*(?:javascript|data|vbscript)\s*:/i,
   ]
 
   // -----------------------------------------------------------------------

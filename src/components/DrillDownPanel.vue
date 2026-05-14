@@ -2,6 +2,7 @@
 import { useGoalStore } from '@/stores/goalStore'
 import { useNodeStore } from '@/stores/nodeStore'
 import type { Goal } from '@/models'
+import { progressColor, computeWeightedProgress } from '@/composables/useProgressColor'
 
 const props = defineProps<{ goalId: string }>()
 const emit = defineEmits<{ close: [] }>()
@@ -35,15 +36,9 @@ function buildTree(goalId: string, depth: number): TreeNode | null {
     .sort((a, b) => b.goal.weight - a.goal.weight)
 
   // Weighted progress: from children if any, else the goal's own progress
-  let weightedProgress = goal.progress
-  if (children.length > 0) {
-    const totalWeight = children.reduce((s, c) => s + c.goal.weight, 0)
-    weightedProgress =
-      totalWeight > 0
-        ? children.reduce((s, c) => s + c.goal.weight * c.goal.progress, 0) / totalWeight
-        : 0
-    weightedProgress = Math.min(100, Math.max(0, weightedProgress))
-  }
+  const weightedProgress = children.length > 0
+    ? computeWeightedProgress(children.map((c) => c.goal))
+    : goal.progress
 
   return {
     goal,
@@ -62,12 +57,7 @@ function totalWeight(node: TreeNode): number {
   return node.children.reduce((s, c) => s + c.goal.weight, 0)
 }
 
-function progressColor(pct: number): string {
-  if (pct >= 80) return '#2e7d32'
-  if (pct >= 50) return '#1565c0'
-  if (pct >= 25) return '#e65100'
-  return '#b71c1c'
-}
+
 
 function statusBadgeClass(status: string): string {
   if (status === 'Complete') return 'badge-complete'

@@ -400,9 +400,12 @@ export class GoalService {
    * (i.e., appears somewhere in the parentId chain above `nodeId`).
    */
   private isAncestorNode(ancestorNodeId: string, nodeId: string): boolean {
+    const visited = new Set<string>()
     let cursor: string | null | undefined = this.nodeStore.nodes[nodeId]?.parentId
     while (cursor != null) {
       if (cursor === ancestorNodeId) return true
+      if (visited.has(cursor)) break  // cycle detected — stop traversal
+      visited.add(cursor)
       cursor = this.nodeStore.nodes[cursor]?.parentId
     }
     return false

@@ -55,17 +55,24 @@ It is designed for managers who want a lightweight, no-friction way to practice 
 - **Free drag positioning** — drag individual nodes (and their subtrees) anywhere on the canvas for custom layouts.
 - **Resize nodes** — drag any corner handle to resize a node; the subtree adjusts automatically.
 - **Role levels** — choose from CEO/President, Vice President, Executive, Director, Manager, Supervisor, Lead, Employee, Contractor, or define a Custom label.
+- **Node display** — each node shows the person's **name** (bold) on top and their position title below it.
+- **Collapse/expand subtree** — nodes with children show a ▶/▼ triangle next to the name. Clicking it hides or reveals the entire subtree beneath that node. The layout re-flows automatically on expand so no nodes overlap. Collapse state is saved and restored between sessions.
 
 ### Toolbar
 
 | Button | Action |
 |---|---|
 | **⌂ Home** | Re-centers the view on the leftmost root node |
+| **+ Zoom / − Zoom** | Zoom in or out; also available via the scroll wheel |
 | **+ Add Node** | Opens the form to create a new root node |
 | **⬜ Clean Up** | Re-runs the tree layout algorithm to neatly arrange all nodes |
+| **↩ Undo** | Reverts the last destructive action (delete, reparent, import) — also `Ctrl+Z` |
+| **↪ Redo** | Re-applies the last undone action — also `Ctrl+Shift+Z` or `Ctrl+Y` |
+| **Collapse All** | Hides the goal cards on every node simultaneously; child nodes shift up to maintain spacing |
+| **Expand All** | Shows the goal cards on every node simultaneously; child nodes shift down to maintain spacing |
 | **↺ Reset Layout** | Clears all manual size and position overrides |
-| **↓ Export** | Downloads all nodes and goals as a JSON file |
-| **↑ Import** | Loads nodes and goals from a previously exported JSON file |
+| **↓ Export** | Downloads all nodes, goals, and layout as a JSON file |
+| **↑ Import** | Loads nodes and goals (plus optional layout) from a previously exported JSON file |
 
 ### Goals
 
@@ -73,21 +80,24 @@ It is designed for managers who want a lightweight, no-friction way to practice 
 - **Goal types** — Root (top-level objective), Refined (child-node restatement linked to an ancestor goal), Sub_Task (leaf-level action item).
 - **Weighted progress roll-up** — changing a leaf goal's progress automatically propagates upward through the hierarchy using a weighted average formula: $\text{progress} = \frac{\sum w_i \cdot p_i}{\sum w_i}$
 - **Complete shortcut** — setting a goal's status to *Complete* immediately forces its progress to 100 %.
-- **Goal tooltip** — hover the goal indicator icon on any node for an instant summary of that node's goals.
+- **Goal panel toggle** — click the 🎯 icon on any node to show or hide its goal cards inline. The node resizes to fit the content, and any child nodes shift to maintain their original distance. Use **Collapse All** / **Expand All** in the toolbar to do this across all nodes at once.
+- **Goal tooltip** — hover the 🎯 icon on any node for an instant summary of that node's goals, including progress bars and statuses, without expanding the node.
 - **Cascade delete** — deleting a goal also removes all Refined goals that trace back to it.
-- **Change notifications** — when a source goal's description or status changes, a toast notification is generated for every node that has a Refined goal referencing it.
+- **Change notifications** — when a source goal's description or status changes, a toast notification is generated for every node that has a Refined goal referencing it. Notifications auto-dismiss after 5 seconds.
 
 ### Executive Dashboard
 
 - **Goal cards** — every root goal is shown as a card with a progress ring, status badge, refinement count, and weight.
 - **Progress ring** — color-coded (green ≥ 80 %, blue ≥ 50 %, orange ≥ 25 %, red < 25 %).
+- **Subtree scope picker** — filter the dashboard to show only Root goals belonging to nodes within a chosen subtree. A clear (✕) button resets to the full top-level view.
 - **Drill-down panel** — click any card to expand the full goal hierarchy tree, showing weighted progress at each level, owner names, weights, and statuses.
 
 ### Data & Persistence
 
 - All data (nodes, goals, and canvas layout) is stored in `localStorage` automatically.
 - When storage quota is exceeded the app falls back to IndexedDB transparently.
-- **Export / Import** — snapshot the full dataset to a portable JSON file and reload it on any machine.
+- **Export / Import** — snapshot the full dataset — nodes, goals, and canvas layout (positions, sizes, collapse state) — to a portable JSON file and reload it on any machine. Layout is restored exactly as exported.
+- **Undo / Redo** — up to 50 levels of undo for destructive operations (delete, reparent, import). History is stored in memory only and cleared when the page is reloaded or a new dataset is imported.
 
 ---
 
@@ -97,6 +107,7 @@ It is designed for managers who want a lightweight, no-friction way to practice 
 src/
 ├── adapters/       # Persistence layer (localStorage + IndexedDB fallback, mock for tests)
 ├── components/     # Vue components (OrgChartContainer, NodeComponent, GoalCard, …)
+├── composables/    # Reusable Composition API logic (useUndoRedo, useProgressColor, useCanvasTransform, …)
 ├── models/         # TypeScript interfaces (OrgNode, Goal, Notification, …)
 ├── services/       # Business logic (NodeService, GoalService, ProgressService, Sanitizer, ValidationService)
 ├── stores/         # Pinia stores (nodeStore, goalStore, uiStore, dashboardStore)
@@ -117,7 +128,7 @@ src/
 
 ## Security
 
-All user-supplied text is HTML-escaped before storage and display. The `Sanitizer` service rejects strings containing script tags, event-handler attributes, and dangerous URI schemes (`javascript:`, `data:`, `vbscript:`). Input lengths are validated both before and after sanitization.
+All user-supplied text is HTML-escaped before storage and display. The `Sanitizer` service rejects strings containing script tags, event-handler attributes, and dangerous URI schemes (`javascript:`, `data:`, `vbscript:`) — including when embedded inside CSS `url()` constructs. Input lengths are validated both before and after sanitization.
 
 ---
 
