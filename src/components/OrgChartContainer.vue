@@ -248,14 +248,29 @@ function intersectsViewport(pos: { x: number; y: number }): boolean {
 
 const allNodeIds = computed<string[]>(() => Object.keys(nodeStore.nodes))
 
-const visibleNodes = computed<string[]>(() => {
-  const count = allNodeIds.value.length
-  if (count < LAZY_THRESHOLD) {
-    // Render all nodes when below threshold
-    return allNodeIds.value
+// ── Collapse state ─────────────────────────────────────────────────────────
+/** Node IDs whose children (and all descendants) are currently hidden. */
+const collapsedNodes = ref<Set<string>>(new Set())
+
+/** All node IDs that are hidden because an ancestor is collapsed. */
+const hiddenNodeIds = computed<Set<string>>(() => {
+  const hidden = new Set<string>()
+  for (const collapsedId of collapsedNodes.value) {
+    // subtreeOf includes the collapsed node itself at index 0 — skip it
+    const subtree = nodeStore.subtreeOf(collapsedId).slice(1)
+    for (const node of subtree) {
+      hidden.add(node.id)
+    }
   }
+  return hidden
+})
+
+const visibleNodes = computed<string[]>(() => {
+  // Filter out descendants of collapsed nodes
+  const notHidden = allNodeIds.value.filter((id) => !hiddenNodeIds.value.has(id))
+  if (notHidden.length < LAZY_THRESHOLD) return notHidden
   // Only render nodes whose bounding box intersects the viewport
-  return allNodeIds.value.filter((id) => {
+  return notHidden.filter((id) => {
     const pos = nodePositions.value.get(id)
     if (!pos) return false
     return intersectsViewport(pos)
@@ -276,6 +291,7 @@ function saveLayout() {
     const payload = JSON.stringify({
       sizes: [...nodeSizes.value.entries()],
       offsets: [...nodePositionOffsets.value.entries()],
+      collapsed: [...collapsedNodes.value],
     })
     localStorage.setItem(LAYOUT_STORAGE_KEY, payload)
   } catch {
@@ -287,9 +303,10 @@ function loadLayout() {
   try {
     const raw = localStorage.getItem(LAYOUT_STORAGE_KEY)
     if (!raw) return
-    const { sizes, offsets } = JSON.parse(raw)
+    const { sizes, offsets, collapsed } = JSON.parse(raw)
     if (Array.isArray(sizes)) nodeSizes.value = new Map(sizes)
     if (Array.isArray(offsets)) nodePositionOffsets.value = new Map(offsets)
+    if (Array.isArray(collapsed)) collapsedNodes.value = new Set(collapsed)
   } catch {
     // corrupt data — ignore and start fresh
   }
@@ -298,6 +315,7 @@ function loadLayout() {
 function resetLayout() {
   nodeSizes.value = new Map()
   nodePositionOffsets.value = new Map()
+  collapsedNodes.value = new Set()
   localStorage.removeItem(LAYOUT_STORAGE_KEY)
 }
 
@@ -360,10 +378,10 @@ function cancelImport() {
   importError.value = null
 }
 
-// Auto-save whenever sizes or offsets change (debounced to avoid thrashing).
+// Auto-save whenever sizes, offsets, or collapse state changes (debounced).
 let _layoutSaveTimer: ReturnType<typeof setTimeout> | null = null
 watch(
-  [nodeSizes, nodePositionOffsets],
+  [nodeSizes, nodePositionOffsets, collapsedNodes],
   () => {
     if (_layoutSaveTimer !== null) clearTimeout(_layoutSaveTimer)
     _layoutSaveTimer = setTimeout(saveLayout, 300)
@@ -689,8 +707,9 @@ function relayoutNodes() {
   if (Object.keys(nodes).length === 0) return
 
   // Pass 1: compute the full horizontal slot required by each subtree.
+  // Collapsed nodes are treated as leaves — their children are not laid out.
   function subtreeWidth(nodeId: string): number {
-    const children = nodeStore.childrenOf(nodeId)
+    const children = collapsedNodes.value.has(nodeId) ? [] : nodeStore.childrenOf(nodeId)
     const { width } = getNodeSize(nodeId)
     if (children.length === 0) return width
     const childrenSpan =
@@ -700,10 +719,11 @@ function relayoutNodes() {
   }
 
   // Pass 2: place nodes given an allocated slot starting at xStart.
+  // Collapsed nodes are treated as leaves — their children are not placed.
   const newAbsPositions = new Map<string, { x: number; y: number }>()
 
   function placeSubtree(nodeId: string, xStart: number, yStart: number): void {
-    const children = nodeStore.childrenOf(nodeId)
+    const children = collapsedNodes.value.has(nodeId) ? [] : nodeStore.childrenOf(nodeId)
     const { width, height } = getNodeSize(nodeId)
     const slot = subtreeWidth(nodeId)
 
@@ -744,6 +764,26 @@ function relayoutNodes() {
     })
   }
   nodePositionOffsets.value = newOffsetMap
+}
+
+// ── Collapse/Expand children ──────────────────────────────────────────────
+/**
+ * Toggle the collapsed state of a node's children.
+ * Collapsing hides the entire subtree below the node.
+ * Expanding re-runs the clean-up layout so newly visible nodes are properly spaced.
+ */
+function toggleCollapse(nodeId: string) {
+  const newSet = new Set(collapsedNodes.value)
+  if (newSet.has(nodeId)) {
+    // Expanding: remove from collapsed set then re-layout
+    newSet.delete(nodeId)
+    collapsedNodes.value = newSet
+    nextTick(() => relayoutNodes())
+  } else {
+    // Collapsing: add to collapsed set
+    newSet.add(nodeId)
+    collapsedNodes.value = newSet
+  }
 }
 
 // ── Focus Trap for Delete Dialog (Task 15.1) ────────────────────────────────
@@ -859,6 +899,13 @@ function openEditNode(nodeId: string) {
  *   neatly arranged (mirrors pressing the "Clean Up" button).
  */
 async function positionNewChild(childId: string, parentId: string, siblingCountBefore: number): Promise<void> {
+  // If the parent was collapsed, expand it so the new child is immediately visible
+  if (collapsedNodes.value.has(parentId)) {
+    const newSet = new Set(collapsedNodes.value)
+    newSet.delete(parentId)
+    collapsedNodes.value = newSet
+  }
+
   await nextTick() // wait for nodePositions to include the new node
 
   if (siblingCountBefore >= 1) {
@@ -1024,6 +1071,8 @@ const edges = computed<Array<{ x1: number; y1: number; x2: number; y2: number; k
   for (const id of Object.keys(nodeStore.nodes)) {
     const node = nodeStore.nodes[id]
     if (!node?.parentId) continue
+    // Skip edges whose child node is hidden (descendant of a collapsed node)
+    if (hiddenNodeIds.value.has(id)) continue
     if (!nodePositions.value.has(id) || !nodePositions.value.has(node.parentId)) continue
     const { width: pw, height: ph } = getNodeSize(node.parentId)
     const { width: cw, height: ch } = getNodeSize(id)
@@ -1149,6 +1198,7 @@ function goHome() {
           >
             <NodeComponent
               :node-id="nodeId"
+              :is-collapsed="collapsedNodes.has(nodeId)"
               @drag-start="onDragStart"
               @drag-end="onDragEnd"
               @drop="onDrop"
@@ -1156,6 +1206,7 @@ function goHome() {
               @add-goal="openAddGoal"
               @edit="openEditNode"
               @delete="onDeleteNode"
+              @toggle-collapse="toggleCollapse"
             />
           </div>
         </foreignObject>

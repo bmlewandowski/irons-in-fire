@@ -5,7 +5,10 @@ import { useGoalStore } from '@/stores/goalStore'
 import GoalCard from './GoalCard.vue'
 
 // ── Props & Emits ───────────────────────────────────────────────────────────
-const props = defineProps<{ nodeId: string }>()
+const props = defineProps<{
+  nodeId: string
+  isCollapsed?: boolean
+}>()
 
 const emit = defineEmits<{
   'drag-start': [nodeId: string]
@@ -15,6 +18,7 @@ const emit = defineEmits<{
   'add-goal': [nodeId: string]
   'edit': [nodeId: string]
   'delete': [nodeId: string]
+  'toggle-collapse': [nodeId: string]
 }>()
 
 // ── Stores ──────────────────────────────────────────────────────────────────
@@ -25,6 +29,7 @@ const goalStore = useGoalStore()
 const node = computed(() => nodeStore.nodes[props.nodeId])
 const goals = computed(() => goalStore.goalsForNode(props.nodeId))
 const isSelected = computed(() => nodeStore.selectedNodeId === props.nodeId)
+const hasChildren = computed(() => nodeStore.childrenOf(props.nodeId).length > 0)
 
 const roleCssClass = computed(() => {
   const role = node.value?.roleLevel ?? ''
@@ -88,7 +93,13 @@ function progressColor(pct: number): string {
         @dragend.stop="emit('drag-end', props.nodeId)"
       >⠿</button>
       <div class="node-info" :class="roleCssClass">
-        <strong class="node-title">{{ node?.title }}</strong>
+        <strong class="node-title">
+          <button
+            v-if="hasChildren"
+            class="collapse-toggle-btn"
+            :aria-label="props.isCollapsed ? 'Show child nodes' : 'Hide child nodes'"
+            @click.stop="emit('toggle-collapse', props.nodeId)"
+          >{{ props.isCollapsed ? '\u25b6' : '\u25bc' }}</button>{{ node?.title }}</strong>
         <div class="node-owner">{{ node?.ownerName }}</div>
       </div>
       <!-- Goal icon: top-right, opposite drag handle (only when goals exist) -->
@@ -122,6 +133,7 @@ function progressColor(pct: number): string {
       @update-status="(val) => goalStore.updateGoal(goal.id, { status: val })"
       @delete="goalStore.deleteGoal(goal.id)"
     />
+
   </div>
 
   <!-- Delete confirmation modal -->
@@ -214,7 +226,9 @@ function progressColor(pct: number): string {
 }
 
 .node-title {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 3px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -463,5 +477,22 @@ function progressColor(pct: number): string {
 .btn-confirm-delete:hover {
   background: #b71c1c;
   border-color: #b71c1c;
+}
+
+/* ── Collapse toggle ────────────────────────────────────────────────── */
+
+.collapse-toggle-btn {
+  flex-shrink: 0;
+  padding: 0;
+  font-size: 0.6rem;
+  line-height: 1;
+  background: none;
+  border: none;
+  color: #444;
+  cursor: pointer;
+}
+
+.collapse-toggle-btn:hover {
+  color: #000;
 }
 </style>
