@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useNodeStore } from '@/stores/nodeStore'
 import { useUiStore } from '@/stores/uiStore'
 import { useListView } from '@/composables/useListView'
@@ -54,6 +54,13 @@ const dragState = ref<{
 
 const visibleNodes = computed(() => getVisibleNodes(nodeStore.nodes))
 const hasNodes = computed(() => Object.keys(nodeStore.nodes).length > 0)
+
+// Expand all nodes by default when component mounts
+onMounted(() => {
+  if (hasNodes.value) {
+    expandAll(nodeStore.nodes)
+  }
+})
 
 // Node creation
 const showCreateRoot = ref(false)
@@ -235,6 +242,7 @@ function onDragStart(nodeId: string, event: DragEvent) {
   dragState.value = {
     draggingNodeId: nodeId,
     originalParentId: node.parentId,
+    dragOverNodeId: null,
   }
 
   event.dataTransfer.effectAllowed = 'move'
@@ -413,151 +421,149 @@ defineExpose({
     <!-- Tree view -->
     <div v-else class="tree-container">
       <div class="tree-body">
-        <div
-          v-for="treeNode in visibleNodes"
-          :key="treeNode.node.id"
-          class="tree-row"
-          :class="{
-            'is-dragging': dragState.draggingNodeId === treeNode.node.id,
-            'is-drag-over': dragState.dragOverNodeId === treeNode.node.id && isValidDropTarget(treeNode.node.id),
-          }"
-          :style="{ marginLeft: `${treeNode.level * 32}px` }"
-          :draggable="!isEditing(treeNode.node.id)"
-          @dragstart="onDragStart(treeNode.node.id, $event)"
-          @dragover="onDragOver(treeNode.node.id, $event)"
-          @dragleave="onDragLeave(treeNode.node.id)"
-          @drop="onDrop(treeNode.node.id, $event)"
-          @dragend="onDragEnd"
-        >
-          <!-- Expand/Collapse Button -->
-          <button
-            v-if="treeNode.hasChildren"
-            class="expand-btn"
-            :aria-label="treeNode.isExpanded ? 'Collapse' : 'Expand'"
-            @click="toggleExpand(treeNode.node.id)"
+        <template v-for="treeNode in visibleNodes" :key="treeNode.node.id">
+          <div
+            class="tree-row"
+            :class="{
+              'is-dragging': dragState.draggingNodeId === treeNode.node.id,
+              'is-drag-over': dragState.dragOverNodeId === treeNode.node.id && isValidDropTarget(treeNode.node.id),
+            }"
+            :style="{ marginLeft: `${treeNode.level * 32}px` }"
+            :draggable="!isEditing(treeNode.node.id)"
+            @dragstart="onDragStart(treeNode.node.id, $event)"
+            @dragover="onDragOver(treeNode.node.id, $event)"
+            @dragleave="onDragLeave(treeNode.node.id)"
+            @drop="onDrop(treeNode.node.id, $event)"
+            @dragend="onDragEnd"
           >
-            {{ treeNode.isExpanded ? '▼' : '▶' }}
-          </button>
-          <span v-else class="expand-spacer"></span>
+            <!-- Expand/Collapse Button -->
+            <button
+              v-if="treeNode.hasChildren"
+              class="expand-btn"
+              :aria-label="treeNode.isExpanded ? 'Collapse' : 'Expand'"
+              @click="toggleExpand(treeNode.node.id)"
+            >
+              {{ treeNode.isExpanded ? '▼' : '▶' }}
+            </button>
+            <span v-else class="expand-spacer"></span>
 
-          <!-- View Mode -->
-          <template v-if="!isEditing(treeNode.node.id)">
-            <div class="tree-cell col-name">
-              {{ treeNode.node.ownerName }}
-            </div>
-            <div class="tree-cell col-title">
-              {{ treeNode.node.title }}
-            </div>
-            <div class="tree-cell col-role">
-              {{ treeNode.node.roleLevel === 'Custom' && treeNode.node.customRoleLabel
-                ? treeNode.node.customRoleLabel
-                : treeNode.node.roleLevel
-              }}
-            </div>
-            <div class="tree-cell col-actions">
-              <button class="btn-small" @click="startEdit(treeNode.node)">Edit</button>
-              <button class="btn-small" @click="openCreateChild(treeNode.node.id)">+ Child</button>
-              <button class="btn-small btn-danger" @click="confirmDelete(treeNode.node.id)">Delete</button>
-            </div>
-          </template>
+            <!-- View Mode -->
+            <template v-if="!isEditing(treeNode.node.id)">
+              <div class="tree-cell col-name">
+                {{ treeNode.node.ownerName }}
+              </div>
+              <div class="tree-cell col-title">
+                {{ treeNode.node.title }}
+              </div>
+              <div class="tree-cell col-role">
+                {{ treeNode.node.roleLevel === 'Custom' && treeNode.node.customRoleLabel
+                  ? treeNode.node.customRoleLabel
+                  : treeNode.node.roleLevel
+                }}
+              </div>
+              <div class="tree-cell col-actions">
+                <button class="btn-small" @click="startEdit(treeNode.node)">Edit</button>
+                <button class="btn-small" @click="openCreateChild(treeNode.node.id)">+ Child</button>
+                <button class="btn-small btn-danger" @click="confirmDelete(treeNode.node.id)">Delete</button>
+              </div>
+            </template>
 
-          <!-- Edit Mode -->
-          <template v-else>
+            <!-- Edit Mode -->
+            <template v-else>
+              <div class="tree-cell col-name">
+                <input
+                  v-model="editForm.ownerName"
+                  type="text"
+                  class="tree-input"
+                  placeholder="Name"
+                  @keyup.enter="saveEdit(treeNode.node.id)"
+                  @keyup.escape="cancelEdit"
+                />
+              </div>
+              <div class="tree-cell col-title">
+                <input
+                  v-model="editForm.title"
+                  type="text"
+                  class="tree-input"
+                  placeholder="Title"
+                  @keyup.enter="saveEdit(treeNode.node.id)"
+                  @keyup.escape="cancelEdit"
+                />
+              </div>
+              <div class="tree-cell col-role">
+                <select v-model="editForm.roleLevel" class="tree-select">
+                  <option v-for="role in roleLevels" :key="role" :value="role">
+                    {{ role }}
+                  </option>
+                </select>
+                <input
+                  v-if="editForm.roleLevel === 'Custom'"
+                  v-model="editForm.customRoleLabel"
+                  type="text"
+                  class="tree-input tree-input--small"
+                  placeholder="Custom role"
+                  @keyup.enter="saveEdit(treeNode.node.id)"
+                  @keyup.escape="cancelEdit"
+                />
+              </div>
+              <div class="tree-cell col-actions">
+                <button class="btn-small btn-primary" @click="saveEdit(treeNode.node.id)">Save</button>
+                <button class="btn-small" @click="cancelEdit">Cancel</button>
+              </div>
+            </template>
+          </div>
+
+          <!-- Create child form (inline) - appears immediately after parent -->
+          <div
+            v-if="newNodeForm.parentId === treeNode.node.id"
+            class="tree-row tree-row--create"
+            :style="{
+              marginLeft: `${(treeNode.level + 1) * 32}px`,
+            }"
+          >
+            <span class="expand-spacer"></span>
             <div class="tree-cell col-name">
               <input
-                v-model="editForm.ownerName"
+                v-model="newNodeForm.ownerName"
                 type="text"
                 class="tree-input"
                 placeholder="Name"
-                @keyup.enter="saveEdit(treeNode.node.id)"
-                @keyup.escape="cancelEdit"
+                @keyup.enter="createNode"
+                @keyup.escape="cancelCreate"
               />
             </div>
             <div class="tree-cell col-title">
               <input
-                v-model="editForm.title"
+                v-model="newNodeForm.title"
                 type="text"
                 class="tree-input"
                 placeholder="Title"
-                @keyup.enter="saveEdit(treeNode.node.id)"
-                @keyup.escape="cancelEdit"
+                @keyup.enter="createNode"
+                @keyup.escape="cancelCreate"
               />
             </div>
             <div class="tree-cell col-role">
-              <select v-model="editForm.roleLevel" class="tree-select">
+              <select v-model="newNodeForm.roleLevel" class="tree-select">
                 <option v-for="role in roleLevels" :key="role" :value="role">
                   {{ role }}
                 </option>
               </select>
               <input
-                v-if="editForm.roleLevel === 'Custom'"
-                v-model="editForm.customRoleLabel"
+                v-if="newNodeForm.roleLevel === 'Custom'"
+                v-model="newNodeForm.customRoleLabel"
                 type="text"
                 class="tree-input tree-input--small"
                 placeholder="Custom role"
-                @keyup.enter="saveEdit(treeNode.node.id)"
-                @keyup.escape="cancelEdit"
+                @keyup.enter="createNode"
+                @keyup.escape="cancelCreate"
               />
             </div>
             <div class="tree-cell col-actions">
-              <button class="btn-small btn-primary" @click="saveEdit(treeNode.node.id)">Save</button>
-              <button class="btn-small" @click="cancelEdit">Cancel</button>
+              <button class="btn-small btn-primary" @click="createNode">Add</button>
+              <button class="btn-small" @click="cancelCreate">Cancel</button>
             </div>
-          </template>
-        </div>
-
-        <!-- Create child form (inline) -->
-        <div
-          v-if="newNodeForm.parentId !== null"
-          class="tree-row tree-row--create"
-          :style="{
-            marginLeft: `${
-              ((visibleNodes.find((tn) => tn.node.id === newNodeForm.parentId)?.level || 0) + 1) * 32
-            }px`,
-          }"
-        >
-          <span class="expand-spacer"></span>
-          <div class="tree-cell col-name">
-            <input
-              v-model="newNodeForm.ownerName"
-              type="text"
-              class="tree-input"
-              placeholder="Name"
-              @keyup.enter="createNode"
-              @keyup.escape="cancelCreate"
-            />
           </div>
-          <div class="tree-cell col-title">
-            <input
-              v-model="newNodeForm.title"
-              type="text"
-              class="tree-input"
-              placeholder="Title"
-              @keyup.enter="createNode"
-              @keyup.escape="cancelCreate"
-            />
-          </div>
-          <div class="tree-cell col-role">
-            <select v-model="newNodeForm.roleLevel" class="tree-select">
-              <option v-for="role in roleLevels" :key="role" :value="role">
-                {{ role }}
-              </option>
-            </select>
-            <input
-              v-if="newNodeForm.roleLevel === 'Custom'"
-              v-model="newNodeForm.customRoleLabel"
-              type="text"
-              class="tree-input tree-input--small"
-              placeholder="Custom role"
-              @keyup.enter="createNode"
-              @keyup.escape="cancelCreate"
-            />
-          </div>
-          <div class="tree-cell col-actions">
-            <button class="btn-small btn-primary" @click="createNode">Add</button>
-            <button class="btn-small" @click="cancelCreate">Cancel</button>
-          </div>
-        </div>
+        </template>
       </div>
     </div>
 
