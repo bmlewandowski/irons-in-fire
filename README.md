@@ -47,6 +47,18 @@ It is designed for managers who want a lightweight, no-friction way to practice 
 
 ## Features
 
+### Three Views
+
+Irons in Fire offers three complementary views for managing your organization:
+
+1. **Org Chart** — Visual SVG canvas with spatial layout and goal management
+2. **List View** — Streamlined tree interface for rapid organizational structure building
+3. **Executive Dashboard** — Analytics view showing goal progress and metrics
+
+Switch between views using the navigation tabs at the top of the application.
+
+---
+
 ### Org Chart
 
 - **Interactive canvas** — pan by dragging the background; zoom with the scroll wheel.
@@ -75,6 +87,44 @@ It is designed for managers who want a lightweight, no-friction way to practice 
 | **↺ Reset Layout** | Clears all manual size and position overrides |
 | **↓ Export** | Downloads all nodes, goals, and layout as a JSON file |
 | **↑ Import** | Loads nodes and goals (plus optional layout) from a previously exported JSON file |
+
+### List View
+
+A streamlined, tree-based interface optimized for **rapid organizational structure creation** without the complexity of goals or spatial layout.
+
+- **Floating card design** — each node appears as an independent bordered card on the workspace
+- **Hierarchical indentation** — child nodes are offset 32px from their parents, creating a staggered visual cascade that clearly shows relationships
+- **Expand/collapse** — click ▶/▼ arrows to show or hide child nodes; supports **Expand All** and **Collapse All** toolbar buttons
+- **Inline editing** — click **Edit** to modify Name, Title, and Role Level directly within the node card
+  - Press **Enter** to save or **Escape** to cancel
+- **Quick child creation** — click **+ Child** on any node to add a child inline with automatic indentation
+- **Drag and drop reparenting** — drag any node card to a new parent
+  - Valid drop targets highlight with a **green glow** to show where the connection will be made
+  - Cycle detection prevents dropping on descendants
+  - Indentation automatically updates after drop
+- **Delete with confirmation** — deletes the node and all descendants with a confirmation dialog
+- **Alphabetical sorting** — children are automatically sorted by name within each level
+- **Keyboard-friendly** — Enter to save, Escape to cancel throughout the interface
+- **Export/Import** — export nodes to JSON (goals not required) or import organizational structures
+- **Undo support** — all destructive operations support undo
+
+**List View Toolbar:**
+
+| Button | Action |
+|---|---|
+| **+ Add Node** | Creates a new root node via modal dialog |
+| **↩ Undo** | Reverts the last action (delete, reparent, import) |
+| **Expand All** | Expands all parent nodes to show full hierarchy |
+| **Collapse All** | Collapses all parent nodes to show only root level |
+| **↓ Export** | Downloads organizational structure as JSON |
+| **↑ Import** | Loads organizational structure from JSON file |
+
+**Use List View when:**
+- Building initial organizational structures quickly
+- Populating the hierarchy without goal data
+- Preferring a familiar tree/outline interface over a spatial canvas
+- Bulk editing node properties
+- Need keyboard-driven workflow
 
 ### Goals
 
@@ -108,8 +158,8 @@ It is designed for managers who want a lightweight, no-friction way to practice 
 ```
 src/
 ├── adapters/       # Persistence layer (localStorage + IndexedDB fallback, mock for tests)
-├── components/     # Vue components (OrgChartContainer, NodeComponent, GoalCard, …)
-├── composables/    # Reusable Composition API logic (useUndoRedo, useProgressColor, useCanvasTransform, …)
+├── components/     # Vue components (OrgChartContainer, ListView, NodeComponent, GoalCard, ExecutiveDashboard, …)
+├── composables/    # Reusable Composition API logic (useUndoRedo, useListView, useProgressColor, useCanvasTransform, …)
 ├── models/         # TypeScript interfaces (OrgNode, Goal, Notification, …)
 ├── services/       # Business logic (NodeService, GoalService, ProgressService, Sanitizer, ValidationService)
 ├── stores/         # Pinia stores (nodeStore, goalStore, uiStore, dashboardStore)
