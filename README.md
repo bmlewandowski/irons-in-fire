@@ -94,7 +94,7 @@ A streamlined, tree-based interface optimized for **rapid organizational structu
 
 - **Floating card design** — each node appears as an independent bordered card on the workspace
 - **Hierarchical indentation** — child nodes are offset 32px from their parents, creating a staggered visual cascade that clearly shows relationships
-- **Expand/collapse** — click ▶/▼ arrows to show or hide child nodes; supports **Expand All** and **Collapse All** toolbar buttons
+- **Expand/collapse** — nodes start **fully expanded by default** for immediate visibility of the entire hierarchy; click ▶/▼ arrows to collapse or expand individual branches; supports **Expand All** and **Collapse All** toolbar buttons
 - **Inline editing** — click **Edit** to modify Name, Title, and Role Level directly within the node card
   - Press **Enter** to save or **Escape** to cancel
 - **Quick child creation** — click **+ Child** on any node to add a child inline with automatic indentation
