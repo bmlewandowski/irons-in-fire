@@ -45,9 +45,11 @@ const roleLevels: RoleLevel[] = [
 const dragState = ref<{
   draggingNodeId: string | null
   originalParentId: string | null
+  dragOverNodeId: string | null
 }>({
   draggingNodeId: null,
   originalParentId: null,
+  dragOverNodeId: null,
 })
 
 const visibleNodes = computed(() => getVisibleNodes(nodeStore.nodes))
@@ -239,10 +241,22 @@ function onDragStart(nodeId: string, event: DragEvent) {
   event.dataTransfer.setData('text/plain', nodeId)
 }
 
-function onDragOver(event: DragEvent) {
+function onDragOver(targetNodeId: string, event: DragEvent) {
   event.preventDefault()
   if (event.dataTransfer) {
     event.dataTransfer.dropEffect = 'move'
+  }
+  
+  // Only set drag over if it's a valid target
+  if (isValidDropTarget(targetNodeId)) {
+    dragState.value.dragOverNodeId = targetNodeId
+  }
+}
+
+function onDragLeave(targetNodeId: string) {
+  // Clear drag over if leaving this specific node
+  if (dragState.value.dragOverNodeId === targetNodeId) {
+    dragState.value.dragOverNodeId = null
   }
 }
 
@@ -268,7 +282,7 @@ async function onDrop(targetNodeId: string, event: DragEvent) {
 
   const draggingId = dragState.value.draggingNodeId
   if (!draggingId || !isValidDropTarget(targetNodeId)) {
-    dragState.value = { draggingNodeId: null, originalParentId: null }
+    dragState.value = { draggingNodeId: null, originalParentId: null, dragOverNodeId: null }
     return
   }
 
@@ -287,11 +301,11 @@ async function onDrop(targetNodeId: string, event: DragEvent) {
     })
   }
 
-  dragState.value = { draggingNodeId: null, originalParentId: null }
+  dragState.value = { draggingNodeId: null, originalParentId: null, dragOverNodeId: null }
 }
 
 function onDragEnd() {
-  dragState.value = { draggingNodeId: null, originalParentId: null }
+  dragState.value = { draggingNodeId: null, originalParentId: null, dragOverNodeId: null }
 }
 
 // Import/Export
@@ -398,13 +412,6 @@ defineExpose({
 
     <!-- Tree view -->
     <div v-else class="tree-container">
-      <div class="tree-header">
-        <div class="tree-header-col col-name">Name</div>
-        <div class="tree-header-col col-title">Title</div>
-        <div class="tree-header-col col-role">Role Level</div>
-        <div class="tree-header-col col-actions">Actions</div>
-      </div>
-
       <div class="tree-body">
         <div
           v-for="treeNode in visibleNodes"
@@ -412,12 +419,13 @@ defineExpose({
           class="tree-row"
           :class="{
             'is-dragging': dragState.draggingNodeId === treeNode.node.id,
-            'is-drag-over': isValidDropTarget(treeNode.node.id),
+            'is-drag-over': dragState.dragOverNodeId === treeNode.node.id && isValidDropTarget(treeNode.node.id),
           }"
-          :style="{ paddingLeft: `${treeNode.level * 32 + 8}px` }"
+          :style="{ marginLeft: `${treeNode.level * 32}px` }"
           :draggable="!isEditing(treeNode.node.id)"
           @dragstart="onDragStart(treeNode.node.id, $event)"
-          @dragover="onDragOver"
+          @dragover="onDragOver(treeNode.node.id, $event)"
+          @dragleave="onDragLeave(treeNode.node.id)"
           @drop="onDrop(treeNode.node.id, $event)"
           @dragend="onDragEnd"
         >
@@ -503,8 +511,8 @@ defineExpose({
           v-if="newNodeForm.parentId !== null"
           class="tree-row tree-row--create"
           :style="{
-            paddingLeft: `${
-              (visibleNodes.find((tn) => tn.node.id === newNodeForm.parentId)?.level || 0) * 32 + 40
+            marginLeft: `${
+              ((visibleNodes.find((tn) => tn.node.id === newNodeForm.parentId)?.level || 0) + 1) * 32
             }px`,
           }"
         >
@@ -649,20 +657,17 @@ defineExpose({
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px;
 }
 
 .tree-header {
-  display: flex;
-  background: #fff;
-  border-bottom: 2px solid #ddd;
-  padding: 12px 8px;
-  font-weight: 600;
-  color: #333;
-  flex-shrink: 0;
+  display: none;
 }
 
 .tree-header-col {
-  padding: 0 8px;
+  display: none;
 }
 
 .col-name {
@@ -688,20 +693,28 @@ defineExpose({
 .tree-body {
   flex: 1;
   overflow-y: auto;
-  background: #fff;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .tree-row {
   display: flex;
   align-items: center;
-  padding: 8px;
-  border-bottom: 1px solid #eee;
-  transition: background 0.15s;
+  padding: 12px 16px;
+  background: #fff;
+  border: 2px solid #333;
+  border-radius: 6px;
+  transition: all 0.15s;
   cursor: grab;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .tree-row:hover {
   background: #f9f9f9;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  border-color: #555;
 }
 
 .tree-row.is-dragging {
@@ -710,13 +723,18 @@ defineExpose({
 }
 
 .tree-row.is-drag-over {
-  background: #e3f2fd;
-  border-left: 3px solid #2196f3;
+  background: #e8f5e9;
+  border-color: #4caf50;
+  border-width: 3px;
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.3), 0 4px 12px rgba(0, 0, 0, 0.2);
+  transform: translateY(-2px);
 }
 
 .tree-row--create {
-  background: #fff9e6;
+  background: #fffbf0;
   cursor: default;
+  border-color: #ffa726;
+  border-style: dashed;
 }
 
 .expand-btn {
