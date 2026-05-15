@@ -4,14 +4,16 @@ import { useUiStore } from '@/stores/uiStore'
 import { useNodeStore } from '@/stores/nodeStore'
 import OrgChartContainer from '@/components/OrgChartContainer.vue'
 import ExecutiveDashboard from '@/components/ExecutiveDashboard.vue'
+import ListView from '@/components/ListView.vue'
 
 const uiStore = useUiStore()
 const nodeStore = useNodeStore()
 
-type Tab = 'orgchart' | 'dashboard'
+type Tab = 'orgchart' | 'dashboard' | 'listview'
 const activeTab = ref<Tab>('orgchart')
 
 const orgChartRef = ref<InstanceType<typeof OrgChartContainer> | null>(null)
+const listViewRef = ref<InstanceType<typeof ListView> | null>(null)
 const hasNodes = computed(() => Object.keys(nodeStore.nodes).length > 0)
 </script>
 
@@ -26,6 +28,12 @@ const hasNodes = computed(() => Object.keys(nodeStore.nodes).length > 0)
           :class="['tab-btn', { active: activeTab === 'orgchart' }]"
           @click="activeTab = 'orgchart'"
         >Org Chart</button>
+        <button
+          role="tab"
+          :aria-selected="activeTab === 'listview'"
+          :class="['tab-btn', { active: activeTab === 'listview' }]"
+          @click="activeTab = 'listview'"
+        >List View</button>
         <button
           role="tab"
           :aria-selected="activeTab === 'dashboard'"
@@ -78,6 +86,38 @@ const hasNodes = computed(() => Object.keys(nodeStore.nodes).length > 0)
           ↑ Import
         </button>
       </div>
+
+      <!-- List view toolbar (right-justified) -->
+      <div v-if="activeTab === 'listview'" class="header-toolbar">
+        <button class="header-btn" aria-label="Add node" @click="listViewRef?.openCreateRoot()">
+          + Add Node
+        </button>
+        <button
+          v-if="listViewRef?.canUndo"
+          class="header-btn"
+          aria-label="Undo last action (Ctrl+Z)"
+          @click="listViewRef?.undo()"
+        >↩ Undo</button>
+        <button
+          v-if="hasNodes"
+          class="header-btn"
+          aria-label="Expand all nodes"
+          @click="listViewRef?.expandAll()"
+        >Expand All</button>
+        <button
+          v-if="hasNodes"
+          class="header-btn"
+          aria-label="Collapse all nodes"
+          @click="listViewRef?.collapseAll()"
+        >Collapse All</button>
+        <div class="header-divider"></div>
+        <button class="header-btn" aria-label="Export data as JSON" @click="listViewRef?.exportData()">
+          ↓ Export
+        </button>
+        <button class="header-btn" aria-label="Import data from JSON" @click="listViewRef?.triggerImport()">
+          ↑ Import
+        </button>
+      </div>
     </header>
 
     <main class="app-main">
@@ -99,6 +139,16 @@ const hasNodes = computed(() => Object.keys(nodeStore.nodes).length > 0)
         aria-label="Organization Chart"
       >
         <OrgChartContainer ref="orgChartRef" />
+      </section>
+
+      <!-- List View tab -->
+      <section
+        v-show="activeTab === 'listview'"
+        class="tab-section list-section"
+        role="tabpanel"
+        aria-label="List View"
+      >
+        <ListView ref="listViewRef" />
       </section>
     </main>
 
@@ -248,6 +298,12 @@ const hasNodes = computed(() => Object.keys(nodeStore.nodes).length > 0)
 
 .chart-section {
   overflow: hidden;
+}
+
+.list-section {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .notifications-container {
