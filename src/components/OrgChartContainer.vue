@@ -50,7 +50,7 @@ const {
 } = useNodeLayout(_collapsedNodes, _collapsedGoalNodes)
 
 // ── Undo / Redo ─────────────────────────────────────────────────────────────
-const { canUndo, canRedo, snapshot, undo, redo, clearHistory } = useUndoRedo({
+const { canUndo, snapshot, undo, clearHistory } = useUndoRedo({
   getLayout: () => ({
     sizes: [...nodeSizes.value.entries()],
     positions: [...nodeAbsPositions.value.entries()],
@@ -182,12 +182,6 @@ function onKeyDown(event: KeyboardEvent) {
   if (event.key === 'z' && !event.shiftKey) {
     event.preventDefault()
     undo()
-  } else if (event.key === 'z' && event.shiftKey) {
-    event.preventDefault()
-    redo()
-  } else if (event.key === 'y') {
-    event.preventDefault()
-    redo()
   }
 }
 
@@ -333,9 +327,7 @@ defineExpose({
   zoomIn: () => zoomBy(1.2),
   zoomOut: () => zoomBy(1 / 1.2),
   canUndo,
-  canRedo,
   undo,
-  redo,
 })
 </script>
 

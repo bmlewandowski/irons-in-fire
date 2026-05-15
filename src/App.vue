@@ -54,12 +54,7 @@ const hasNodes = computed(() => Object.keys(nodeStore.nodes).length > 0)
           aria-label="Undo last action (Ctrl+Z)"
           @click="orgChartRef?.undo()"
         >↩ Undo</button>
-        <button
-          v-if="orgChartRef?.canRedo"
-          class="header-btn"
-          aria-label="Redo last undone action (Ctrl+Shift+Z)"
-          @click="orgChartRef?.redo()"
-        >↪ Redo</button>
+
         <button
           v-if="hasNodes"
           class="header-btn"

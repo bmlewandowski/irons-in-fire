@@ -16,11 +16,14 @@ cd irons-in-fire
 # 2. Install dependencies
 npm install
 
-# 3. Start the development server
+# 3. Copy the environment file (uses localStorage by default)
+cp .env.example .env
+
+# 4. Start the development server
 npm run dev
 ```
 
-Open `http://localhost:5173` in your browser. That's it — no database, no login, no configuration.
+Open `http://localhost:5173` in your browser. That's it — no database, no login required.
 
 ### Other commands
 
@@ -67,7 +70,6 @@ It is designed for managers who want a lightweight, no-friction way to practice 
 | **+ Add Node** | Opens the form to create a new root node |
 | **⬜ Clean Up** | Re-runs the tree layout algorithm to neatly arrange all nodes |
 | **↩ Undo** | Reverts the last destructive action (delete, reparent, import) — also `Ctrl+Z` |
-| **↪ Redo** | Re-applies the last undone action — also `Ctrl+Shift+Z` or `Ctrl+Y` |
 | **Collapse All** | Hides the goal cards on every node simultaneously; child nodes shift up to maintain spacing |
 | **Expand All** | Shows the goal cards on every node simultaneously; child nodes shift down to maintain spacing |
 | **↺ Reset Layout** | Clears all manual size and position overrides |
@@ -97,7 +99,7 @@ It is designed for managers who want a lightweight, no-friction way to practice 
 - All data (nodes, goals, and canvas layout) is stored in `localStorage` automatically.
 - When storage quota is exceeded the app falls back to IndexedDB transparently.
 - **Export / Import** — snapshot the full dataset — nodes, goals, and canvas layout (positions, sizes, collapse state) — to a portable JSON file and reload it on any machine. Layout is restored exactly as exported.
-- **Undo / Redo** — up to 50 levels of undo for destructive operations (delete, reparent, import). History is stored in memory only and cleared when the page is reloaded or a new dataset is imported.
+- **Undo** — up to 50 levels of undo for destructive operations (delete, reparent, import). History is stored in memory only and cleared when the page is reloaded or a new dataset is imported.
 
 ---
 

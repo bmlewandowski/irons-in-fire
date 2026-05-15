@@ -88,11 +88,6 @@ describe('useUndoRedo', () => {
     expect(canUndo.value).toBe(false)
   })
 
-  it('starts with canRedo = false', () => {
-    const { canRedo } = useUndoRedo(makeLayoutAccessors())
-    expect(canRedo.value).toBe(false)
-  })
-
   it('canUndo becomes true after snapshot()', () => {
     const { snapshot, canUndo } = useUndoRedo(makeLayoutAccessors())
     snapshot()
@@ -128,49 +123,11 @@ describe('useUndoRedo', () => {
     expect(goalStore.goals['g1'].description).toBe('Before')
   })
 
-  it('undo() makes canRedo = true', () => {
-    const { snapshot, undo, canRedo } = useUndoRedo(makeLayoutAccessors())
+  it('clearHistory() empties past', () => {
+    const { snapshot, canUndo, clearHistory } = useUndoRedo(makeLayoutAccessors())
     snapshot()
-    undo()
-    expect(canRedo.value).toBe(true)
-  })
-
-  it('redo() restores state that was undone', () => {
-    const nodeStore = useNodeStore()
-    nodeStore.$patch({ nodes: { n1: makeNode({ id: 'n1', title: 'Before' }) } })
-    const { snapshot, undo, redo } = useUndoRedo(makeLayoutAccessors())
-    snapshot()
-    nodeStore.$patch({ nodes: { n1: makeNode({ id: 'n1', title: 'After' }) } })
-    undo()
-    expect(nodeStore.nodes['n1'].title).toBe('Before')
-    redo()
-    expect(nodeStore.nodes['n1'].title).toBe('After')
-  })
-
-  it('redo() is a no-op when canRedo is false', () => {
-    const nodeStore = useNodeStore()
-    nodeStore.$patch({ nodes: { n1: makeNode({ id: 'n1' }) } })
-    const { redo } = useUndoRedo(makeLayoutAccessors())
-    redo()
-    expect(Object.keys(nodeStore.nodes)).toHaveLength(1)
-  })
-
-  it('snapshot() after undo clears the redo stack', () => {
-    const { snapshot, undo, canRedo } = useUndoRedo(makeLayoutAccessors())
-    snapshot()
-    undo()
-    expect(canRedo.value).toBe(true)
-    snapshot()
-    expect(canRedo.value).toBe(false)
-  })
-
-  it('clearHistory() empties past and future', () => {
-    const { snapshot, undo, canUndo, canRedo, clearHistory } = useUndoRedo(makeLayoutAccessors())
-    snapshot()
-    undo()
     clearHistory()
     expect(canUndo.value).toBe(false)
-    expect(canRedo.value).toBe(false)
   })
 
   it('restoreEntry() writes nodes to localStorage', () => {
@@ -193,10 +150,10 @@ describe('useUndoRedo', () => {
     expect(memStorage.getItem('irons-in-fire:goals')).not.toBeNull()
   })
 
-  it('supports a multi-step undo/redo cycle', () => {
+  it('supports multiple undo steps', () => {
     const nodeStore = useNodeStore()
     nodeStore.$patch({ nodes: { n1: makeNode({ id: 'n1', title: 'v1' }) } })
-    const { snapshot, undo, redo } = useUndoRedo(makeLayoutAccessors())
+    const { snapshot, undo } = useUndoRedo(makeLayoutAccessors())
 
     snapshot() // save v1
     nodeStore.$patch({ nodes: { n1: makeNode({ id: 'n1', title: 'v2' }) } })
@@ -209,13 +166,6 @@ describe('useUndoRedo', () => {
     // undo to v1
     undo()
     expect(nodeStore.nodes['n1'].title).toBe('v1')
-
-    // redo to v2
-    redo()
-    expect(nodeStore.nodes['n1'].title).toBe('v2')
-    // redo to v3
-    redo()
-    expect(nodeStore.nodes['n1'].title).toBe('v3')
   })
 
   it('does not exceed MAX_UNDO_DEPTH (50) entries', () => {

@@ -6,7 +6,7 @@
  * offsets, collapse) is captured separately so it can also be unwound.
  *
  * Usage:
- *   const { canUndo, canRedo, snapshot, undo, redo } = useUndoRedo()
+ *   const { canUndo, snapshot, undo } = useUndoRedo()
  *
  *   // Before a destructive operation:
  *   snapshot()
@@ -55,11 +55,8 @@ export function useUndoRedo(layoutAccessors: LayoutAccessors) {
 
   /** Entries before each destructive operation — index 0 is the oldest. */
   const past = ref<HistoryEntry[]>([])
-  /** Entries after the current position (populated on undo). */
-  const future = ref<HistoryEntry[]>([])
 
   const canUndo = computed(() => past.value.length > 0)
-  const canRedo = computed(() => future.value.length > 0)
 
   /** Call this BEFORE a destructive operation to capture the current state. */
   function snapshot() {
@@ -69,8 +66,6 @@ export function useUndoRedo(layoutAccessors: LayoutAccessors) {
       layout: layoutAccessors.getLayout(),
     }
     past.value = [...past.value.slice(-(MAX_UNDO_DEPTH - 1)), entry]
-    // A new action invalidates the redo stack
-    future.value = []
   }
 
   function restoreEntry(entry: HistoryEntry) {
@@ -91,39 +86,15 @@ export function useUndoRedo(layoutAccessors: LayoutAccessors) {
 
   function undo() {
     if (past.value.length === 0) return
-    // Snapshot current state for redo
-    const current: HistoryEntry = {
-      nodes: JSON.stringify(nodeStore.nodes),
-      goals: JSON.stringify(goalStore.goals),
-      layout: layoutAccessors.getLayout(),
-    }
-    future.value = [current, ...future.value]
-
     const prev = past.value[past.value.length - 1]
     past.value = past.value.slice(0, -1)
     restoreEntry(prev)
   }
 
-  function redo() {
-    if (future.value.length === 0) return
-    // Push current state onto past
-    const current: HistoryEntry = {
-      nodes: JSON.stringify(nodeStore.nodes),
-      goals: JSON.stringify(goalStore.goals),
-      layout: layoutAccessors.getLayout(),
-    }
-    past.value = [...past.value, current]
-
-    const next = future.value[0]
-    future.value = future.value.slice(1)
-    restoreEntry(next)
-  }
-
-  /** Clear both stacks (e.g. after import replaces the full dataset). */
+  /** Clear the undo stack (e.g. after import replaces the full dataset). */
   function clearHistory() {
     past.value = []
-    future.value = []
   }
 
-  return { canUndo, canRedo, snapshot, undo, redo, clearHistory }
+  return { canUndo, snapshot, undo, clearHistory }
 }

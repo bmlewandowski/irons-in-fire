@@ -44,8 +44,6 @@ interface DeltaEntry {
   goalsRemovedData?: Record<string, Goal>
   /** Layout before the operation (for undo) */
   layoutBefore?: LayoutSnapshot
-  /** Layout after the operation (for redo) */
-  layoutAfter?: LayoutSnapshot
   /** For reparent operations - track the change */
   reparent?: {
     nodeId: string
@@ -77,10 +75,8 @@ export function useUndoRedoDelta(layoutAccessors: LayoutAccessors) {
   const goalStore = useGoalStore()
 
   const past = ref<DeltaEntry[]>([])
-  const future = ref<DeltaEntry[]>([])
 
   const canUndo = computed(() => past.value.length > 0)
-  const canRedo = computed(() => future.value.length > 0)
 
   /**
    * Capture state before a delete operation.
@@ -170,129 +166,73 @@ export function useUndoRedoDelta(layoutAccessors: LayoutAccessors) {
 
   function pushToHistory(delta: DeltaEntry): void {
     past.value = [...past.value.slice(-(MAX_UNDO_DEPTH - 1)), delta]
-    future.value = [] // Invalidate redo stack
   }
 
-  function applyDelta(delta: DeltaEntry, forward: boolean): void {
-    if (forward) {
-      // Apply forward (redo): remove old, add new
-      if (delta.type === 'import' && delta.nodesAdded && delta.goalsAdded) {
-        // For import, replace everything (not merge)
-        nodeStore.$state.nodes = { ...delta.nodesAdded }
-        goalStore.$state.goals = { ...delta.goalsAdded }
-      } else {
-        // For other operations, apply changes incrementally
-        let nodes = { ...nodeStore.nodes }
-        let goals = { ...goalStore.goals }
-        let nodesChanged = false
-        let goalsChanged = false
+  function applyDelta(delta: DeltaEntry): void {
+    // Restore old state (undo)
+    if (delta.type === 'import' && delta.nodesRemovedData && delta.goalsRemovedData) {
+      // For import undo, restore everything (not merge)
+      nodeStore.$state.nodes = { ...delta.nodesRemovedData }
+      goalStore.$state.goals = { ...delta.goalsRemovedData }
+    } else {
+      // For other operations, apply changes incrementally
+      // IMPORTANT: For undo, restore removed data BEFORE deleting added data
+      // to handle updates where the same ID exists in both
+      let nodes = { ...nodeStore.nodes }
+      let goals = { ...goalStore.goals }
+      let nodesChanged = false
+      let goalsChanged = false
 
-        if (delta.nodesRemoved) {
-          for (const id of delta.nodesRemoved) {
+      // First, restore removed data (this will overwrite any existing entries)
+      if (delta.nodesRemovedData) {
+        nodes = { ...nodes, ...delta.nodesRemovedData }
+        nodesChanged = true
+      }
+      // Then, remove newly added data
+      if (delta.nodesAdded) {
+        for (const id of Object.keys(delta.nodesAdded)) {
+          // Only delete if it's not also in nodesRemovedData (update case)
+          if (!delta.nodesRemovedData || !delta.nodesRemovedData[id]) {
             delete nodes[id]
           }
-          nodesChanged = true
         }
-        if (delta.nodesAdded) {
-          nodes = { ...nodes, ...delta.nodesAdded }
-          nodesChanged = true
-        }
-        if (delta.goalsRemoved) {
-          for (const id of delta.goalsRemoved) {
+        nodesChanged = true
+      }
+
+      // Same for goals
+      if (delta.goalsRemovedData) {
+        goals = { ...goals, ...delta.goalsRemovedData }
+        goalsChanged = true
+      }
+      if (delta.goalsAdded) {
+        for (const id of Object.keys(delta.goalsAdded)) {
+          // Only delete if it's not also in goalsRemovedData (update case)
+          if (!delta.goalsRemovedData || !delta.goalsRemovedData[id]) {
             delete goals[id]
           }
-          goalsChanged = true
         }
-        if (delta.goalsAdded) {
-          goals = { ...goals, ...delta.goalsAdded }
-          goalsChanged = true
-        }
-        if (delta.reparent) {
-          const node = nodes[delta.reparent.nodeId]
-          if (node) {
-            nodes = {
-              ...nodes,
-              [delta.reparent.nodeId]: {
-                ...node,
-                parentId: delta.reparent.newParentId,
-              },
-            }
-            nodesChanged = true
-          }
-        }
-
-        if (nodesChanged) nodeStore.$state.nodes = nodes
-        if (goalsChanged) goalStore.$state.goals = goals
+        goalsChanged = true
       }
-      if (delta.layoutAfter) {
-        layoutAccessors.setLayout(delta.layoutAfter)
-      }
-    } else {
-      // Apply backward (undo): restore old, remove new
-      if (delta.type === 'import' && delta.nodesRemovedData && delta.goalsRemovedData) {
-        // For import undo, restore everything (not merge)
-        nodeStore.$state.nodes = { ...delta.nodesRemovedData }
-        goalStore.$state.goals = { ...delta.goalsRemovedData }
-      } else {
-        // For other operations, apply changes incrementally
-        // IMPORTANT: For undo, restore removed data BEFORE deleting added data
-        // to handle updates where the same ID exists in both
-        let nodes = { ...nodeStore.nodes }
-        let goals = { ...goalStore.goals }
-        let nodesChanged = false
-        let goalsChanged = false
 
-        // First, restore removed data (this will overwrite any existing entries)
-        if (delta.nodesRemovedData) {
-          nodes = { ...nodes, ...delta.nodesRemovedData }
-          nodesChanged = true
-        }
-        // Then, remove newly added data
-        if (delta.nodesAdded) {
-          for (const id of Object.keys(delta.nodesAdded)) {
-            // Only delete if it's not also in nodesRemovedData (update case)
-            if (!delta.nodesRemovedData || !delta.nodesRemovedData[id]) {
-              delete nodes[id]
-            }
+      if (delta.reparent) {
+        const node = nodes[delta.reparent.nodeId]
+        if (node) {
+          nodes = {
+            ...nodes,
+            [delta.reparent.nodeId]: {
+              ...node,
+              parentId: delta.reparent.oldParentId,
+            },
           }
           nodesChanged = true
         }
-
-        // Same for goals
-        if (delta.goalsRemovedData) {
-          goals = { ...goals, ...delta.goalsRemovedData }
-          goalsChanged = true
-        }
-        if (delta.goalsAdded) {
-          for (const id of Object.keys(delta.goalsAdded)) {
-            // Only delete if it's not also in goalsRemovedData (update case)
-            if (!delta.goalsRemovedData || !delta.goalsRemovedData[id]) {
-              delete goals[id]
-            }
-          }
-          goalsChanged = true
-        }
-
-        if (delta.reparent) {
-          const node = nodes[delta.reparent.nodeId]
-          if (node) {
-            nodes = {
-              ...nodes,
-              [delta.reparent.nodeId]: {
-                ...node,
-                parentId: delta.reparent.oldParentId,
-              },
-            }
-            nodesChanged = true
-          }
-        }
-
-        if (nodesChanged) nodeStore.$state.nodes = nodes
-        if (goalsChanged) goalStore.$state.goals = goals
       }
-      if (delta.layoutBefore) {
-        layoutAccessors.setLayout(delta.layoutBefore)
-      }
+
+      if (nodesChanged) nodeStore.$state.nodes = nodes
+      if (goalsChanged) goalStore.$state.goals = goals
+    }
+    if (delta.layoutBefore) {
+      layoutAccessors.setLayout(delta.layoutBefore)
     }
 
     // Sync to localStorage
@@ -311,34 +251,12 @@ export function useUndoRedoDelta(layoutAccessors: LayoutAccessors) {
     const delta = past.value[past.value.length - 1]
     past.value = past.value.slice(0, -1)
 
-    // Capture current layout for redo (this is the "after" state)
-    if (!delta.layoutAfter) {
-      delta.layoutAfter = cloneLayout(layoutAccessors.getLayout())
-    }
-
     // Apply the undo
-    applyDelta(delta, false)
-
-    // Move to future
-    future.value = [delta, ...future.value]
-  }
-
-  function redo(): void {
-    if (future.value.length === 0) return
-
-    const delta = future.value[0]
-    future.value = future.value.slice(1)
-
-    // Apply the redo
-    applyDelta(delta, true)
-
-    // Move to past
-    past.value = [...past.value, delta]
+    applyDelta(delta)
   }
 
   function clearHistory(): void {
     past.value = []
-    future.value = []
   }
 
   // For backward compatibility, provide a generic snapshot that creates a full import delta
@@ -354,14 +272,12 @@ export function useUndoRedoDelta(layoutAccessors: LayoutAccessors) {
 
   return {
     canUndo,
-    canRedo,
     snapshot, // Generic snapshot for backward compatibility
     snapshotDelete,
     snapshotReparent,
     snapshotImport,
     snapshotUpdate,
     undo,
-    redo,
     clearHistory,
   }
 }

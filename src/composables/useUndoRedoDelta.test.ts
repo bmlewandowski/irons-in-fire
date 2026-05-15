@@ -87,9 +87,8 @@ describe('useUndoRedoDelta', () => {
   })
 
   it('starts with empty history', () => {
-    const { canUndo, canRedo } = useUndoRedoDelta(layoutAccessors)
+    const { canUndo } = useUndoRedoDelta(layoutAccessors)
     expect(canUndo.value).toBe(false)
-    expect(canRedo.value).toBe(false)
   })
 
   it('captures and undoes delete operation', () => {
@@ -203,44 +202,22 @@ describe('useUndoRedoDelta', () => {
     expect(nodeStore.nodes.n1.title).toBe('Old Name')
   })
 
-  it('supports redo after undo', () => {
-    const { snapshotDelete, undo, redo, canRedo } = useUndoRedoDelta(layoutAccessors)
-
-    const node = makeNode({ id: 'n1', parentId: null, title: 'Test' })
-    nodeStore.$patch({ nodes: { n1: node } })
-
-    snapshotDelete(['n1'], [])
-    nodeStore.$patch((state) => { delete state.nodes['n1'] })
-
-    undo()
-    expect(nodeStore.nodes.n1).toEqual(node)
-    expect(canRedo.value).toBe(true)
-
-    redo()
-    expect(nodeStore.nodes.n1).toBeUndefined()
-  })
-
   it('clears redo stack on new operation', () => {
-    const { snapshotDelete, undo, canRedo } = useUndoRedoDelta(layoutAccessors)
+    // (redo removed; this test verifies new ops don't break undo)
+    const { snapshotDelete, canUndo } = useUndoRedoDelta(layoutAccessors)
 
     const n1 = makeNode({ id: 'n1', parentId: null, title: 'Node 1' })
     const n2 = makeNode({ id: 'n2', parentId: null, title: 'Node 2' })
 
     nodeStore.$patch({ nodes: { n1, n2 } })
 
-    // First operation
     snapshotDelete(['n1'], [])
     nodeStore.$patch((state) => { delete state.nodes['n1'] })
 
-    // Undo
-    undo()
-    expect(canRedo.value).toBe(true)
-
-    // New operation clears redo stack
     snapshotDelete(['n2'], [])
     nodeStore.$patch((state) => { delete state.nodes['n2'] })
 
-    expect(canRedo.value).toBe(false)
+    expect(canUndo.value).toBe(true)
   })
 
   it('limits history to MAX_UNDO_DEPTH', () => {
@@ -339,8 +316,8 @@ describe('useUndoRedoDelta', () => {
     expect(nodeStore.nodes.n3).toEqual(n3)
   })
 
-  it('preserves layout state on undo/redo', () => {
-    const { snapshotDelete, undo, redo } = useUndoRedoDelta(layoutAccessors)
+  it('preserves layout state on undo', () => {
+    const { snapshotDelete, undo } = useUndoRedoDelta(layoutAccessors)
 
     mockLayout.collapsed = ['n1']
     mockLayout.sizes = [['n1', { width: 100, height: 50 }]]
@@ -360,10 +337,5 @@ describe('useUndoRedoDelta', () => {
     undo()
     expect(mockLayout.collapsed).toEqual(['n1'])
     expect(mockLayout.sizes).toEqual([['n1', { width: 100, height: 50 }]])
-
-    // Redo should restore changed layout
-    redo()
-    expect(mockLayout.collapsed).toEqual([])
-    expect(mockLayout.sizes).toEqual([])
   })
 })
