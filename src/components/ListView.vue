@@ -810,6 +810,7 @@ defineExpose({
   border: 1px solid #ddd;
   border-radius: 4px;
   background: white;
+  color: #333;
   cursor: pointer;
   transition: all 0.15s;
   white-space: nowrap;
