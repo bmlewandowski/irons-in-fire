@@ -710,6 +710,7 @@ defineExpose({
   align-items: center;
   padding: 12px 16px;
   background: #fff;
+  color: #333;
   border: 2px solid #333;
   border-radius: 6px;
   transition: all 0.15s;
