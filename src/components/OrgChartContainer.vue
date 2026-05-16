@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useNodeStore } from '@/stores/nodeStore'
+import { useGoalStore } from '@/stores/goalStore'
 import NodeComponent from './NodeComponent.vue'
 import { useCanvasTransform } from '@/composables/useCanvasTransform'
 import { useNodeModal, ROLE_LEVELS } from '@/composables/useNodeModal'
@@ -15,6 +16,7 @@ import { useDeleteDialog } from '@/composables/useDeleteDialog'
 
 // ── Stores ─────────────────────────────────────────────────────────────────
 const nodeStore = useNodeStore()
+const goalStore = useGoalStore()
 
 // ── Pan/Zoom Transform ──────────────────────────────────────────────────────
 const svgRef = ref<SVGSVGElement | null>(null)
@@ -280,6 +282,12 @@ const {
   cancelGoalModal,
 } = useGoalModal()
 
+// ── Goal Deletion with Undo ──────────────────────────────────────────────────
+function handleDeleteGoal(goalId: string) {
+  snapshot()
+  goalStore.deleteGoal(goalId)
+}
+
 // ── Computed helpers ─────────────────────────────────────────────────────────
 const isEmpty = computed(() => Object.keys(nodeStore.nodes).length === 0)
 
@@ -440,6 +448,7 @@ defineExpose({
               @add-goal="openAddGoal"
               @edit="openEditNode"
               @delete="onDeleteNode"
+              @delete-goal="handleDeleteGoal"
               @toggle-collapse="toggleCollapse"
               @goals-toggled="onGoalsToggled"
             />

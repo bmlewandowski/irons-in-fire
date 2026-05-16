@@ -20,6 +20,7 @@ const emit = defineEmits<{
   'add-goal': [nodeId: string]
   'edit': [nodeId: string]
   'delete': [nodeId: string]
+  'delete-goal': [goalId: string]
   'toggle-collapse': [nodeId: string]
   'goals-toggled': [nodeId: string]
 }>()
@@ -123,7 +124,7 @@ function onGoalIconLeave() {
         :goal-id="goal.id"
         @update-progress="(val) => goalStore.setProgress(goal.id, val)"
         @update-status="(val) => goalStore.updateGoal(goal.id, { status: val })"
-        @delete="goalStore.deleteGoal(goal.id)"
+        @delete="emit('delete-goal', goal.id)"
       />
     </template>
 

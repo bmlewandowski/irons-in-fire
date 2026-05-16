@@ -110,7 +110,7 @@ function onCancelDelete() {
     <div v-if="showDeleteConfirm" class="modal-backdrop" @click.self="onCancelDelete">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <h3 id="modal-title" class="modal-title">Delete Goal</h3>
-        <p class="modal-body">Are you sure you want to delete <strong>"{{ goal?.description }}"</strong>? This cannot be undone.</p>
+        <p class="modal-body">Are you sure you want to delete <strong>"{{ goal?.description }}"</strong>?</p>
         <div class="modal-actions">
           <button class="btn-cancel" @click="onCancelDelete">Cancel</button>
           <button class="btn-confirm-delete" @click="onConfirmDelete">Delete</button>
