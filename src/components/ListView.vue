@@ -521,6 +521,7 @@ defineExpose({
             :class="{
               'is-dragging': dragState.draggingNodeId === treeNode.node.id,
               'is-drag-over': dragState.dragOverNodeId === treeNode.node.id && isValidDropTarget(treeNode.node.id),
+              'is-editing': isEditing(treeNode.node.id),
             }"
             :style="{ marginLeft: `${treeNode.level * 32}px` }"
             :draggable="!isEditing(treeNode.node.id)"
@@ -888,6 +889,11 @@ defineExpose({
   transform: translateY(-2px);
 }
 
+.tree-row.is-editing {
+  background: #fffde7;
+  border-color: #f9a825;
+}
+
 .tree-row--create {
   background: #fffbf0;
   cursor: default;
@@ -930,6 +936,9 @@ defineExpose({
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 14px;
+  background: #fff;
+  color: #333;
+  color-scheme: light;
 }
 
 .tree-input:focus {
@@ -946,7 +955,9 @@ defineExpose({
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 14px;
-  background: white;
+  background: #fff;
+  color: #333;
+  color-scheme: light;
   cursor: pointer;
 }
 
@@ -960,8 +971,9 @@ defineExpose({
   font-size: 13px;
   border: 1px solid #ddd;
   border-radius: 4px;
-  background: white;
+  background: #fff;
   color: #333;
+  color-scheme: light;
   cursor: pointer;
   transition: all 0.15s;
   white-space: nowrap;

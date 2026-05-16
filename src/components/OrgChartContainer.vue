@@ -379,6 +379,7 @@ defineExpose({
     :style="{ width: '100%', height: '100%', overflow: 'hidden', cursor: resizeState ? 'nwse-resize' : moveState?.active ? 'grabbing' : 'grab' }"
     @wheel.prevent="onWheel"
     @mousedown="onMouseDown"
+    @click.self="nodeStore.selectNode(null)"
   >
     <g :transform="transformString">
       <!-- Edges -->
@@ -431,9 +432,10 @@ defineExpose({
                 dragState.draggingNodeId !== null &&
                 dragHoverNodeId === nodeId,
               moving: moveState?.nodeId === nodeId && moveState?.active,
+              'is-selected': nodeStore.selectedNodeId === nodeId,
             }"
             @mousedown="onNodeWrapperMouseDown($event, nodeId)"
-            @click="onNodeWrapperClick(nodeId)"
+            @click.stop="onNodeWrapperClick(nodeId)"
             @dragover="onNodeDragOver($event, nodeId)"
             @dragleave="onNodeDragLeave(nodeId)"
           >
@@ -717,6 +719,12 @@ defineExpose({
   background: #e8f5e9;
   border-color: #43a047;
   box-shadow: 0 0 0 3px #43a04755;
+}
+
+.node-wrapper.is-selected {
+  background: #fffde7;
+  border-color: #f9a825;
+  box-shadow: 0 0 0 2px rgba(249, 168, 37, 0.35);
 }
 
 .resize-handle {
