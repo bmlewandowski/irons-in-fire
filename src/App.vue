@@ -148,7 +148,7 @@ const hasNodes = computed(() => Object.keys(nodeStore.nodes).length > 0)
         role="tabpanel"
         aria-label="List View"
       >
-        <ListView ref="listViewRef" />
+        <ListView ref="listViewRef" @node-reparented="orgChartRef?.relayoutNodes()" />
       </section>
     </main>
 

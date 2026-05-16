@@ -558,7 +558,7 @@ describe('ListView', () => {
       const modal = wrapper.find('.modal-overlay')
       expect(modal.exists()).toBe(true)
       expect(wrapper.text()).toContain('Delete Node')
-      expect(wrapper.text()).toContain('Are you sure')
+      expect(wrapper.text()).toContain('This will also delete 0 descendant')
     })
 
     it('calls nodeStore.deleteNode when confirmed', async () => {
@@ -631,6 +631,48 @@ describe('ListView', () => {
           message: 'Delete failed',
         }),
       )
+    })
+
+    it('shows promote option when node has children', async () => {
+      const parent = makeNode({ id: 'p1', parentId: null, ownerName: 'Parent' })
+      const child = makeNode({ id: 'c1', parentId: 'p1', ownerName: 'Child' })
+      nodeStore.$patch({ nodes: { p1: parent, c1: child } })
+
+      const wrapper = mountListView()
+      await wrapper.vm.$nextTick()
+
+      // Click Delete on parent
+      const rows = wrapper.findAll('.tree-row')
+      const deleteBtn = rows[0].findAll('.btn-danger').find((btn) => btn.text() === 'Delete')!
+      await deleteBtn.trigger('click')
+
+      // Should show promote option
+      expect(wrapper.text()).toContain('Promote Children & Delete')
+      expect(wrapper.text()).toContain('promote 1 direct child')
+    })
+
+    it('promotes children and deletes node when promote button clicked', async () => {
+      const parent = makeNode({ id: 'p1', parentId: null, ownerName: 'Parent' })
+      const child = makeNode({ id: 'c1', parentId: 'p1', ownerName: 'Child' })
+      nodeStore.$patch({ nodes: { p1: parent, c1: child } })
+
+      const promoteToRootSpy = vi.spyOn(nodeStore, 'promoteToRoot').mockResolvedValue()
+      const deleteSpy = vi.spyOn(nodeStore, 'deleteNode').mockResolvedValue()
+
+      const wrapper = mountListView()
+      await wrapper.vm.$nextTick()
+
+      // Click Delete on parent
+      const rows = wrapper.findAll('.tree-row')
+      const deleteBtn = rows[0].findAll('.btn-danger').find((btn) => btn.text() === 'Delete')!
+      await deleteBtn.trigger('click')
+
+      // Click Promote Children & Delete
+      const promoteBtn = wrapper.find('.btn-promote')
+      await promoteBtn.trigger('click')
+
+      expect(promoteToRootSpy).toHaveBeenCalledWith('c1')
+      expect(deleteSpy).toHaveBeenCalledWith('p1')
     })
   })
 

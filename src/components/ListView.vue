@@ -1,13 +1,20 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useNodeStore } from '@/stores/nodeStore'
+import { useGoalStore } from '@/stores/goalStore'
 import { useUiStore } from '@/stores/uiStore'
 import { useListView } from '@/composables/useListView'
 import { useUndoRedo } from '@/composables/useUndoRedo'
+import { progressColor } from '@/composables/useProgressColor'
 import type { OrgNode, RoleLevel } from '@/models/OrgNode'
 
 const nodeStore = useNodeStore()
+const goalStore = useGoalStore()
 const uiStore = useUiStore()
+
+const emit = defineEmits<{
+  'node-reparented': []
+}>()
 
 const {
   getVisibleNodes,
@@ -200,39 +207,125 @@ function cancelEdit() {
 
 // Delete node
 const showDeleteConfirm = ref(false)
-const nodeToDelete = ref<string | null>(null)
+const confirmDelete = ref<{
+  nodeId: string
+  descendantCount: number
+  goalCount: number
+  directChildCount: number
+  grandparentId: string | null
+} | null>(null)
 
-function confirmDelete(nodeId: string) {
-  nodeToDelete.value = nodeId
+function onDeleteNode(nodeId: string) {
+  const subtree = nodeStore.subtreeOf(nodeId)
+  const descendantCount = subtree.length - 1
+  const directChildren = nodeStore.childrenOf(nodeId)
+  const node = nodeStore.nodes[nodeId]
+
+  if (descendantCount > 0) {
+    const goalCount = subtree.reduce(
+      (sum, n) => sum + goalStore.goalsForNode(n.id).length,
+      0,
+    )
+    confirmDelete.value = {
+      nodeId,
+      descendantCount,
+      goalCount,
+      directChildCount: directChildren.length,
+      grandparentId: node?.parentId ?? null,
+    }
+  } else {
+    const goalCount = goalStore.goalsForNode(nodeId).length
+    confirmDelete.value = {
+      nodeId,
+      descendantCount: 0,
+      goalCount,
+      directChildCount: 0,
+      grandparentId: node?.parentId ?? null,
+    }
+  }
   showDeleteConfirm.value = true
 }
 
 async function deleteNode() {
-  if (!nodeToDelete.value) return
+  if (!confirmDelete.value) return
+  const { nodeId } = confirmDelete.value
+  confirmDelete.value = null
+  showDeleteConfirm.value = false
 
   snapshot()
   
   try {
-    await nodeStore.deleteNode(nodeToDelete.value)
+    await nodeStore.deleteNode(nodeId)
   } catch (err) {
     uiStore.addNotification({
       id: crypto.randomUUID(),
-      nodeId: nodeToDelete.value,
+      nodeId,
       message: err instanceof Error ? err.message : 'Failed to delete node',
       sourceGoalId: '',
       read: false,
       createdAt: new Date().toISOString(),
     })
   }
+}
 
+async function promoteAndDeleteNode() {
+  if (!confirmDelete.value) return
+  const { nodeId, grandparentId } = confirmDelete.value
+  confirmDelete.value = null
   showDeleteConfirm.value = false
-  nodeToDelete.value = null
+
+  snapshot()
+  const directChildren = nodeStore.childrenOf(nodeId)
+  try {
+    for (const child of directChildren) {
+      if (grandparentId !== null) {
+        await nodeStore.reparentNode(child.id, grandparentId)
+      } else {
+        await nodeStore.promoteToRoot(child.id)
+      }
+    }
+    await nodeStore.deleteNode(nodeId)
+  } catch (err) {
+    uiStore.addNotification({
+      id: crypto.randomUUID(),
+      nodeId,
+      message: err instanceof Error ? err.message : 'Failed to promote and delete node.',
+      sourceGoalId: '',
+      read: false,
+      createdAt: new Date().toISOString(),
+    })
+  }
 }
 
 function cancelDelete() {
   showDeleteConfirm.value = false
-  nodeToDelete.value = null
+  confirmDelete.value = null
 }
+
+// Goal tooltip
+const showGoalTooltip = ref(false)
+const tooltipNodeId = ref<string | null>(null)
+const tooltipStyle = ref({ top: '0px', left: '0px' })
+
+function onGoalIconEnter(nodeId: string, event: MouseEvent) {
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  tooltipStyle.value = {
+    top: `${rect.bottom + 6}px`,
+    left: `${rect.left}px`,
+  }
+  tooltipNodeId.value = nodeId
+  showGoalTooltip.value = true
+}
+
+function onGoalIconLeave() {
+  showGoalTooltip.value = false
+  tooltipNodeId.value = null
+}
+
+const tooltipGoals = computed(() => {
+  if (!tooltipNodeId.value) return []
+  return goalStore.goalsForNode(tooltipNodeId.value)
+})
 
 // Drag and drop
 function onDragStart(nodeId: string, event: DragEvent) {
@@ -298,6 +391,7 @@ async function onDrop(targetNodeId: string, event: DragEvent) {
   
   try {
     await nodeStore.reparentNode(draggingId, targetNodeId)
+    emit('node-reparented')
   } catch (err) {
     uiStore.addNotification({
       id: crypto.randomUUID(),
@@ -451,6 +545,17 @@ defineExpose({
             <template v-if="!isEditing(treeNode.node.id)">
               <div class="tree-cell col-name">
                 {{ treeNode.node.ownerName }}
+                <!-- Goal icon with badge -->
+                <button
+                  v-if="goalStore.goalsForNode(treeNode.node.id).length > 0"
+                  class="goal-icon-btn"
+                  :aria-label="`${goalStore.goalsForNode(treeNode.node.id).length} goal${goalStore.goalsForNode(treeNode.node.id).length !== 1 ? 's' : ''}`"
+                  @mouseenter="onGoalIconEnter(treeNode.node.id, $event)"
+                  @mouseleave="onGoalIconLeave"
+                >
+                  🎯
+                  <span class="goal-badge">{{ goalStore.goalsForNode(treeNode.node.id).length }}</span>
+                </button>
               </div>
               <div class="tree-cell col-title">
                 {{ treeNode.node.title }}
@@ -464,7 +569,7 @@ defineExpose({
               <div class="tree-cell col-actions">
                 <button class="btn-small" @click="startEdit(treeNode.node)">Edit</button>
                 <button class="btn-small" @click="openCreateChild(treeNode.node.id)">+ Child</button>
-                <button class="btn-small btn-danger" @click="confirmDelete(treeNode.node.id)">Delete</button>
+                <button class="btn-small btn-danger" @click="onDeleteNode(treeNode.node.id)">Delete</button>
               </div>
             </template>
 
@@ -620,13 +725,59 @@ defineExpose({
     <div v-if="showDeleteConfirm" class="modal-overlay" @click.self="cancelDelete">
       <div class="modal-content">
         <h2>Delete Node</h2>
-        <p>Are you sure you want to delete this node and all its descendants?</p>
+        <p v-if="confirmDelete">
+          This will also delete {{ confirmDelete.descendantCount }} descendant
+          node(s) and {{ confirmDelete.goalCount }} goal(s).
+        </p>
+        <p v-if="confirmDelete && confirmDelete.directChildCount > 0" class="promote-hint">
+          Or promote {{ confirmDelete.directChildCount }} direct child(ren) up one level and remove only this node.
+        </p>
         <div class="modal-actions">
-          <button class="btn-danger" @click="deleteNode">Delete</button>
+          <button
+            v-if="confirmDelete && confirmDelete.directChildCount > 0"
+            class="btn-promote"
+            @click="promoteAndDeleteNode"
+          >Promote Children &amp; Delete</button>
+          <button class="btn-danger" @click="deleteNode">Delete All</button>
           <button class="btn-secondary" @click="cancelDelete">Cancel</button>
         </div>
       </div>
     </div>
+
+    <!-- Goal tooltip -->
+    <Teleport to="body">
+      <div
+        v-if="showGoalTooltip"
+        class="goal-tooltip"
+        :style="tooltipStyle"
+        role="tooltip"
+      >
+        <div class="goal-tooltip-header">
+          <span class="goal-tooltip-title">Goals</span>
+          <span class="goal-tooltip-count">{{ tooltipGoals.length }}</span>
+        </div>
+        <div v-if="tooltipGoals.length === 0" class="goal-tooltip-empty">No goals yet</div>
+        <ul v-else class="goal-tooltip-list">
+          <li v-for="goal in tooltipGoals" :key="goal.id" class="goal-tooltip-item">
+            <div class="goal-tooltip-row">
+              <span class="goal-tooltip-desc">{{ goal.description }}</span>
+              <span class="goal-tooltip-status" :class="`status-${goal.status.toLowerCase()}`">{{ goal.status }}</span>
+            </div>
+            <div class="goal-tooltip-progress-row">
+              <div class="goal-tooltip-bar-track">
+                <div
+                  class="goal-tooltip-bar-fill"
+                  :style="{ width: goal.progress + '%', background: progressColor(goal.progress) }"
+                />
+              </div>
+              <span class="goal-tooltip-pct" :style="{ color: progressColor(goal.progress) }">
+                {{ Math.round(goal.progress) }}%
+              </span>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -891,6 +1042,158 @@ defineExpose({
   background: #b71c1c;
 }
 
+/* ── Goal icon and tooltip ──────────────────────────────────────────────── */
+
+.goal-icon-btn {
+  position: relative;
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  margin-left: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: inherit;
+  border-radius: 3px;
+  transition: background 0.15s;
+}
+
+.goal-icon-btn:hover {
+  background: rgba(0, 0, 0, 0.07);
+}
+
+.goal-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  background: #1a1a2e;
+  color: #fff;
+  border-radius: 8px;
+  padding: 0 4px;
+  line-height: 1.4;
+  min-width: 14px;
+  text-align: center;
+}
+
+.goal-tooltip {
+  position: fixed;
+  z-index: 2000;
+  background: #fff;
+  color: #213547;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
+  padding: 10px 12px;
+  min-width: 220px;
+  max-width: 300px;
+  font-size: 0.78rem;
+  pointer-events: none;
+}
+
+.goal-tooltip-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 6px;
+}
+
+.goal-tooltip-title {
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.goal-tooltip-count {
+  font-size: 0.72rem;
+  background: #1a1a2e;
+  color: #fff;
+  border-radius: 10px;
+  padding: 1px 7px;
+  font-weight: 600;
+}
+
+.goal-tooltip-empty {
+  color: #999;
+  font-style: italic;
+  text-align: center;
+  padding: 4px 0;
+}
+
+.goal-tooltip-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.goal-tooltip-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.goal-tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.goal-tooltip-desc {
+  flex: 1;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.35;
+}
+
+.goal-tooltip-status {
+  font-size: 0.68rem;
+  font-weight: 600;
+  border-radius: 3px;
+  padding: 1px 5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.status-active  { background: #e3f2fd; color: #1565c0; }
+.status-complete { background: #e8f5e9; color: #2e7d32; }
+.status-refined { background: #fff8e1; color: #e65100; }
+
+.goal-tooltip-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.goal-tooltip-bar-track {
+  flex: 1;
+  height: 5px;
+  background: #e0e0e0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.goal-tooltip-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.2s;
+}
+
+.goal-tooltip-pct {
+  font-size: 0.68rem;
+  font-weight: 700;
+  min-width: 28px;
+  text-align: right;
+}
+
+/* ── Modals ─────────────────────────────────────────────────────────────── */
+
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -922,6 +1225,28 @@ defineExpose({
 .modal-content p {
   margin: 0 0 16px;
   color: #666;
+}
+
+.promote-hint {
+  font-size: 0.85rem;
+  color: #555;
+  margin: 8px 0 4px;
+}
+
+.btn-promote {
+  padding: 10px 20px;
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #2e7d32;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-promote:hover {
+  background: #c8e6c9;
 }
 
 .form-group {
