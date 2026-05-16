@@ -122,6 +122,29 @@ const {
   onDrop,
 } = useNodeDragDrop(nodeAbsPositions, snapshot)
 
+const dragHoverNodeId = ref<string | null>(null)
+
+function onNodeDragOver(event: DragEvent, nodeId: string) {
+  if (dragState.value.draggingNodeId !== null && validDropTargetIds.value.has(nodeId)) {
+    event.preventDefault()
+    dragHoverNodeId.value = nodeId
+  }
+}
+
+function onNodeDragLeave(nodeId: string) {
+  if (dragHoverNodeId.value === nodeId) dragHoverNodeId.value = null
+}
+
+function handleDragEnd(_nodeId: string) {
+  dragHoverNodeId.value = null
+  onDragEnd()
+}
+
+function handleDrop(targetNodeId: string) {
+  dragHoverNodeId.value = null
+  onDrop(targetNodeId)
+}
+
 // ── Delete Dialog ───────────────────────────────────────────────────────────
 const {
   confirmDelete,
@@ -302,12 +325,14 @@ function goHome() {
 
   const nodeX = getNodeX(targetId)
   const nodeY = getNodeY(targetId)
-  const MARGIN = 40
+  const { width: nodeW } = getNodeSize(targetId)
+  const MARGIN_TOP = 40
+  const svgW = svgRef.value?.clientWidth ?? 800
 
   transform.value = {
     ...transform.value,
-    x: -nodeX * transform.value.scale + MARGIN,
-    y: -nodeY * transform.value.scale + MARGIN,
+    x: svgW / 2 - (nodeX + nodeW / 2) * transform.value.scale,
+    y: MARGIN_TOP - nodeY * transform.value.scale,
   }
   updateViewport()
 }
@@ -394,18 +419,23 @@ defineExpose({
               'drop-target-valid':
                 dragState.draggingNodeId !== null &&
                 validDropTargetIds.has(nodeId),
+              'drop-target-hover':
+                dragState.draggingNodeId !== null &&
+                dragHoverNodeId === nodeId,
               moving: moveState?.nodeId === nodeId && moveState?.active,
             }"
             @mousedown="onNodeWrapperMouseDown($event, nodeId)"
             @click="onNodeWrapperClick(nodeId)"
+            @dragover="onNodeDragOver($event, nodeId)"
+            @dragleave="onNodeDragLeave(nodeId)"
           >
             <NodeComponent
               :node-id="nodeId"
               :is-collapsed="collapsedNodes.has(nodeId)"
               :goals-visible="!collapsedGoalNodes.has(nodeId)"
               @drag-start="onDragStart"
-              @drag-end="onDragEnd"
-              @drop="onDrop"
+              @drag-end="handleDragEnd"
+              @drop="handleDrop"
               @add-child="openAddChild"
               @add-goal="openAddGoal"
               @edit="openEditNode"
@@ -645,7 +675,7 @@ defineExpose({
 
 .node-wrapper {
   width: 100%;
-  height: auto;
+  height: 100%;
   box-sizing: border-box;
   border: 1px solid #ccc;
   border-radius: 6px;
@@ -672,6 +702,12 @@ defineExpose({
 .node-wrapper.drop-target-valid {
   border-color: #4caf50;
   box-shadow: 0 0 0 2px #4caf5066;
+}
+
+.node-wrapper.drop-target-hover {
+  background: #e8f5e9;
+  border-color: #43a047;
+  box-shadow: 0 0 0 3px #43a04755;
 }
 
 .resize-handle {
