@@ -118,4 +118,33 @@ describe('uiStore', () => {
       expect(store.viewport).toEqual({ x: 100, y: 200, width: 1920, height: 1080 })
     })
   })
+
+  // ── roleBasedTinting ─────────────────────────────────────────────────────
+
+  describe('roleBasedTinting', () => {
+    it('starts with roleBasedTintingEnabled = false', () => {
+      const store = useUiStore()
+      expect(store.roleBasedTintingEnabled).toBe(false)
+    })
+    it('toggleRoleBasedTinting enables when disabled', () => {
+      const store = useUiStore()
+      store.toggleRoleBasedTinting()
+      expect(store.roleBasedTintingEnabled).toBe(true)
+    })
+    it('toggleRoleBasedTinting disables when enabled', () => {
+      const store = useUiStore()
+      store.toggleRoleBasedTinting()
+      store.toggleRoleBasedTinting()
+      expect(store.roleBasedTintingEnabled).toBe(false)
+    })
+    it('toggleRoleBasedTinting can be toggled multiple times', () => {
+      const store = useUiStore()
+      store.toggleRoleBasedTinting()
+      expect(store.roleBasedTintingEnabled).toBe(true)
+      store.toggleRoleBasedTinting()
+      expect(store.roleBasedTintingEnabled).toBe(false)
+      store.toggleRoleBasedTinting()
+      expect(store.roleBasedTintingEnabled).toBe(true)
+    })
+  })
 })

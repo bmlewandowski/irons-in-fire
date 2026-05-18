@@ -29,16 +29,11 @@ const emit = defineEmits<{
 const nodeStore = useNodeStore()
 const goalStore = useGoalStore()
 
-// ── Derived state ───────────────────────────────────────────────────────────
+// ── Derived state ───────────────────────────────────────────────────────
 const node = computed(() => nodeStore.nodes[props.nodeId])
 const goals = computed(() => goalStore.goalsForNode(props.nodeId))
 const isSelected = computed(() => nodeStore.selectedNodeId === props.nodeId)
 const hasChildren = computed(() => nodeStore.childrenOf(props.nodeId).length > 0)
-
-const roleCssClass = computed(() => {
-  const role = node.value?.roleLevel ?? ''
-  return 'role-' + role.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
-})
 
 
 
@@ -83,7 +78,7 @@ function onGoalIconLeave() {
         @dragstart.stop="emit('drag-start', props.nodeId)"
         @dragend.stop="emit('drag-end', props.nodeId)"
       >⠿</button>
-      <div class="node-info" :class="roleCssClass">
+      <div class="node-info">
         <strong class="node-title">
           <button
             v-if="hasChildren"
@@ -485,4 +480,5 @@ function onGoalIconLeave() {
 .collapse-toggle-btn:hover {
   color: #000;
 }
+
 </style>

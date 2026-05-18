@@ -522,6 +522,7 @@ defineExpose({
               'is-dragging': dragState.draggingNodeId === treeNode.node.id,
               'is-drag-over': dragState.dragOverNodeId === treeNode.node.id && isValidDropTarget(treeNode.node.id),
               'is-editing': isEditing(treeNode.node.id),
+              [`role-${treeNode.node.roleLevel.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}`]: uiStore.roleBasedTintingEnabled,
             }"
             :style="{ marginLeft: `${treeNode.level * 32}px` }"
             :draggable="!isEditing(treeNode.node.id)"
@@ -912,6 +913,61 @@ defineExpose({
   cursor: default;
   border-color: #ffa726;
   border-style: dashed;
+}
+
+/* Role-based tints (subtle) */
+.tree-row.role-ceo-president {
+  background: #fafafa; /* Very light gray */
+}
+
+.tree-row.role-vice-president {
+  background: #fef6f0; /* Subtle orange tint */
+}
+
+.tree-row.role-executive {
+  background: #fffef5; /* Subtle yellow tint */
+}
+
+.tree-row.role-director {
+  background: #f5fef8; /* Subtle green tint */
+}
+
+.tree-row.role-manager {
+  background: #f5fbfe; /* Subtle blue tint */
+}
+
+.tree-row.role-supervisor {
+  background: #f8f5fe; /* Subtle purple tint */
+}
+
+.tree-row.role-lead {
+  background: #fef5fc; /* Subtle pink tint */
+}
+
+.tree-row.role-employee {
+  background: #fef5f5; /* Subtle red tint */
+}
+
+.tree-row.role-contractor {
+  background: #fefcf5; /* Subtle beige tint */
+}
+
+.tree-row.role-custom {
+  background: #f9f5fe; /* Subtle lavender tint */
+}
+
+/* Preserve hover state for all roles */
+.tree-row.role-ceo-president:hover,
+.tree-row.role-vice-president:hover,
+.tree-row.role-executive:hover,
+.tree-row.role-director:hover,
+.tree-row.role-manager:hover,
+.tree-row.role-supervisor:hover,
+.tree-row.role-lead:hover,
+.tree-row.role-employee:hover,
+.tree-row.role-contractor:hover,
+.tree-row.role-custom:hover {
+  background: #f9f9f9;
 }
 
 .expand-btn {

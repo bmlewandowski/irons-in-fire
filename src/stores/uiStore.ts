@@ -12,6 +12,7 @@ export const useUiStore = defineStore('ui', () => {
   const drillDownGoalId = ref<string | null>(null)
   const notifications = ref<Notification[]>([])
   const viewport = ref<ViewportRect>({ x: 0, y: 0, width: 0, height: 0 })
+  const roleBasedTintingEnabled = ref<boolean>(false)
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
@@ -41,16 +42,23 @@ export const useUiStore = defineStore('ui', () => {
     viewport.value = rect
   }
 
+  /** Toggle role-based tinting on/off. */
+  function toggleRoleBasedTinting(): void {
+    roleBasedTintingEnabled.value = !roleBasedTintingEnabled.value
+  }
+
   return {
     // state
     drillDownGoalId,
     notifications,
     viewport,
+    roleBasedTintingEnabled,
     // actions
     activateDrillDown,
     deactivateDrillDown,
     addNotification,
     dismissNotification,
     updateViewport,
+    toggleRoleBasedTinting,
   }
 })

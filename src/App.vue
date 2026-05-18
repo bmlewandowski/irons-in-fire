@@ -47,11 +47,14 @@ const hasNodes = computed(() => Object.keys(nodeStore.nodes).length > 0)
         <button v-if="hasNodes" class="header-btn" aria-label="Go to home position" @click="orgChartRef?.goHome()">
           ⌂ Home
         </button>
-        <button v-if="hasNodes" class="header-btn" aria-label="Zoom in" @click="orgChartRef?.zoomIn()">+ Zoom</button>
-        <button v-if="hasNodes" class="header-btn" aria-label="Zoom out" @click="orgChartRef?.zoomOut()">− Zoom</button>
+        <button v-if="hasNodes" class="header-btn" aria-label="Zoom in" @click="orgChartRef?.zoomIn()"><span class="zoom-sign">+</span> <span class="zoom-icon">🔍</span></button>
+        <button v-if="hasNodes" class="header-btn" aria-label="Zoom out" @click="orgChartRef?.zoomOut()"><span class="zoom-sign">−</span> <span class="zoom-icon">🔍</span></button>
         <div v-if="hasNodes" class="header-divider"></div>
         <button v-if="hasNodes" class="header-btn" aria-label="Clean up layout" @click="orgChartRef?.relayoutNodes()">
-          ⬜ Clean Up
+          Clean Up
+        </button>
+        <button v-if="hasNodes" class="header-btn header-btn--muted" aria-label="Reset layout" @click="orgChartRef && (orgChartRef.showResetConfirm = true)">
+          Reset Layout
         </button>
         <button
           v-if="orgChartRef?.canUndo"
@@ -72,10 +75,14 @@ const hasNodes = computed(() => Object.keys(nodeStore.nodes).length > 0)
           aria-label="Hide goal cards on all nodes"
           @click="orgChartRef?.collapseAllGoals()"
         >Hide Goals</button>
-        <button v-if="hasNodes" class="header-btn header-btn--muted" aria-label="Reset layout" @click="orgChartRef && (orgChartRef.showResetConfirm = true)">
-          ↺ Reset Layout
-        </button>
         <div class="header-divider"></div>
+        <button
+          v-if="hasNodes"
+          class="header-btn"
+          :class="{ 'header-btn--active': uiStore.roleBasedTintingEnabled }"
+          aria-label="Toggle role-based tinting"
+          @click="uiStore.toggleRoleBasedTinting()"
+        >Role Tint</button>
         <button
           v-if="hasNodes"
           class="header-btn"
@@ -90,7 +97,7 @@ const hasNodes = computed(() => Object.keys(nodeStore.nodes).length > 0)
         >Collapse All</button>
         <div class="header-divider"></div>
         <button class="header-btn" aria-label="Add node" @click="orgChartRef?.openCreateRoot()">
-          + Add Node
+          + Node
         </button>
         <button class="header-btn" aria-label="Export data as JSON" @click="orgChartRef?.exportData()">
           ↓ Export
@@ -111,6 +118,13 @@ const hasNodes = computed(() => Object.keys(nodeStore.nodes).length > 0)
         <button
           v-if="hasNodes"
           class="header-btn"
+          :class="{ 'header-btn--active': uiStore.roleBasedTintingEnabled }"
+          aria-label="Toggle role-based tinting"
+          @click="uiStore.toggleRoleBasedTinting()"
+        >Role Tint</button>
+        <button
+          v-if="hasNodes"
+          class="header-btn"
           aria-label="Expand all nodes"
           @click="listViewRef?.expandAll()"
         >Expand All</button>
@@ -122,7 +136,7 @@ const hasNodes = computed(() => Object.keys(nodeStore.nodes).length > 0)
         >Collapse All</button>
         <div class="header-divider"></div>
         <button class="header-btn" aria-label="Add node" @click="listViewRef?.openCreateRoot()">
-          + Add Node
+          + Node
         </button>
         <button class="header-btn" aria-label="Export data as JSON" @click="listViewRef?.exportData()">
           ↓ Export
@@ -249,6 +263,25 @@ const hasNodes = computed(() => Object.keys(nodeStore.nodes).length > 0)
 
 .header-btn:hover {
   background: rgba(255, 255, 255, 0.2);
+}
+
+.header-btn--active {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.header-btn--active:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.zoom-sign {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.zoom-icon {
+  font-size: 1.1rem;
+  filter: brightness(1.3) contrast(1.2);
 }
 
 .header-btn--muted {

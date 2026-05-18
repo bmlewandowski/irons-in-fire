@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useNodeStore } from '@/stores/nodeStore'
 import { useGoalStore } from '@/stores/goalStore'
+import { useUiStore } from '@/stores/uiStore'
 import NodeComponent from './NodeComponent.vue'
 import { useCanvasTransform } from '@/composables/useCanvasTransform'
 import { useNodeModal, ROLE_LEVELS } from '@/composables/useNodeModal'
@@ -17,6 +18,15 @@ import { useDeleteDialog } from '@/composables/useDeleteDialog'
 // ── Stores ─────────────────────────────────────────────────────────────────
 const nodeStore = useNodeStore()
 const goalStore = useGoalStore()
+const uiStore = useUiStore()
+
+// ── Role CSS class helper ──────────────────────────────────────────────────
+function getRoleCssClass(nodeId: string): string {
+  const node = nodeStore.nodes[nodeId]
+  if (!node) return ''
+  const role = node.roleLevel
+  return 'role-' + role.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+}
 
 // ── Pan/Zoom Transform ──────────────────────────────────────────────────────
 const svgRef = ref<SVGSVGElement | null>(null)
@@ -437,6 +447,7 @@ defineExpose({
                 dragHoverNodeId === nodeId,
               moving: moveState?.nodeId === nodeId && moveState?.active,
               'is-selected': nodeStore.selectedNodeId === nodeId,
+              [getRoleCssClass(nodeId)]: uiStore.roleBasedTintingEnabled,
             }"
             @mousedown="onNodeWrapperMouseDown($event, nodeId)"
             @click.stop="onNodeWrapperClick(nodeId)"
@@ -755,6 +766,48 @@ defineExpose({
   background: #fffde7;
   border-color: #f9a825;
   box-shadow: 0 0 0 2px rgba(249, 168, 37, 0.35);
+}
+
+/* ── Role-based tints (subtle) ────────────────────────────── */
+
+.node-wrapper.role-ceo-president {
+  background: #fafafa; /* Very light gray */
+}
+
+.node-wrapper.role-vice-president {
+  background: #fef6f0; /* Subtle orange tint */
+}
+
+.node-wrapper.role-executive {
+  background: #fffef5; /* Subtle yellow tint */
+}
+
+.node-wrapper.role-director {
+  background: #f5fef8; /* Subtle green tint */
+}
+
+.node-wrapper.role-manager {
+  background: #f5fbfe; /* Subtle blue tint */
+}
+
+.node-wrapper.role-supervisor {
+  background: #f8f5fe; /* Subtle purple tint */
+}
+
+.node-wrapper.role-lead {
+  background: #fef5fc; /* Subtle pink tint */
+}
+
+.node-wrapper.role-employee {
+  background: #fef5f5; /* Subtle red tint */
+}
+
+.node-wrapper.role-contractor {
+  background: #fefcf5; /* Subtle beige tint */
+}
+
+.node-wrapper.role-custom {
+  background: #f9f5fe; /* Subtle lavender tint */
 }
 
 .resize-handle {

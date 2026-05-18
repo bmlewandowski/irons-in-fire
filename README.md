@@ -78,15 +78,16 @@ Switch between views using the navigation tabs at the top of the application.
 | Button | Action |
 |---|---|
 | **⌂ Home** | Re-centers the view on the leftmost root node |
-| **+ Zoom / − Zoom** | Zoom in or out; also available via the scroll wheel |
-| **+ Add Node** | Opens the form to create a new root node |
-| **⬜ Clean Up** | Re-runs the tree layout algorithm to neatly arrange all nodes |
+| **+ 🔍 / − 🔍** | Zoom in or out; also available via the scroll wheel |
+| **Clean Up** | Re-runs the tree layout algorithm to neatly arrange all nodes |
+| **Reset Layout** | Clears all manual size and position overrides |
 | **↩ Undo** | Reverts the last destructive action (delete node, delete goal, reparent, import) — also `Ctrl+Z` |
-| **Expand All** | Expands all parent nodes to show their children |
-| **Collapse All** | Collapses all parent nodes to hide their children |
 | **Show Goals** | Shows the goal cards on every node simultaneously; child nodes shift down to maintain spacing |
 | **Hide Goals** | Hides the goal cards on every node simultaneously; child nodes shift up to maintain spacing |
-| **↺ Reset Layout** | Clears all manual size and position overrides |
+| **Role Tint** | Toggles subtle role-based background tinting for visual differentiation (applies to both Org Chart and List View) |
+| **Expand All** | Expands all parent nodes to show their children |
+| **Collapse All** | Collapses all parent nodes to hide their children |
+| **+ Node** | Opens the form to create a new root node |
 | **↓ Export** | Downloads all nodes, goals, and layout as a JSON file |
 | **↑ Import** | Loads nodes and goals (plus optional layout) from a previously exported JSON file |
 
@@ -114,10 +115,11 @@ A streamlined, tree-based interface optimized for **rapid organizational structu
 
 | Button | Action |
 |---|---|
-| **+ Add Node** | Creates a new root node via modal dialog |
 | **↩ Undo** | Reverts the last action (delete, reparent, import) |
+| **Role Tint** | Toggles subtle role-based background tinting for visual differentiation |
 | **Expand All** | Expands all parent nodes to show full hierarchy |
 | **Collapse All** | Collapses all parent nodes to show only root level |
+| **+ Node** | Creates a new root node via modal dialog |
 | **↓ Export** | Downloads organizational structure as JSON |
 | **↑ Import** | Loads organizational structure from JSON file |
 
