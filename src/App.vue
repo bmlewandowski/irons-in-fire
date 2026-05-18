@@ -276,7 +276,7 @@ const hasNodes = computed(() => Object.keys(nodeStore.nodes).length > 0)
 
 .zoom-sign {
   font-size: 1.1rem;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .zoom-icon {
