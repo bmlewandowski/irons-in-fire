@@ -171,6 +171,7 @@ export function useNodeCollapse(
         for (const id of nodesWithGoals) {
           resizeNodeToContent(id)
         }
+        nextTick(() => relayoutNodes())
       })
     })
   }
@@ -192,6 +193,7 @@ export function useNodeCollapse(
         for (const id of was) {
           resizeNodeToContent(id)
         }
+        nextTick(() => relayoutNodes())
       })
     })
   }

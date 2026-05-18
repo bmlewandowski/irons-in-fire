@@ -79,14 +79,14 @@ function onGoalIconLeave() {
         @dragend.stop="emit('drag-end', props.nodeId)"
       >⠿</button>
       <div class="node-info">
-        <strong class="node-title">
+        <strong class="node-title">{{ node?.ownerName }}</strong>
+        <div class="node-owner">
           <button
             v-if="hasChildren"
             class="collapse-toggle-btn"
             :aria-label="props.isCollapsed ? 'Show child nodes' : 'Hide child nodes'"
             @click.stop="emit('toggle-collapse', props.nodeId)"
-          >{{ props.isCollapsed ? '\u25b6' : '\u25bc' }}</button>{{ node?.ownerName }}</strong>
-        <div class="node-owner">{{ node?.title }}</div>
+          >{{ props.isCollapsed ? '\u25b6' : '\u25bc' }}</button>{{ node?.title }}</div>
       </div>
       <!-- Goal icon: top-right, opposite drag handle (only when goals exist) -->
       <button
@@ -210,6 +210,9 @@ function onGoalIconLeave() {
 }
 
 .node-owner {
+  display: flex;
+  align-items: center;
+  gap: 3px;
   color: #666;
   white-space: nowrap;
   overflow: hidden;
@@ -468,17 +471,20 @@ function onGoalIconLeave() {
 
 .collapse-toggle-btn {
   flex-shrink: 0;
-  padding: 0;
-  font-size: 0.6rem;
+  padding: 2px 5px;
+  font-size: 0.7rem;
   line-height: 1;
   background: none;
   border: none;
-  color: #444;
+  color: #aaa;
   cursor: pointer;
+  border-radius: 3px;
+  transition: color 0.15s, background 0.15s;
 }
 
 .collapse-toggle-btn:hover {
-  color: #000;
+  color: #333;
+  background: rgba(0, 0, 0, 0.06);
 }
 
 </style>
