@@ -810,6 +810,11 @@ defineExpose({
   background: #f9f5fe; /* Subtle lavender tint */
 }
 
+/* Drop-target interaction states override role tints */
+.node-wrapper.drop-target-hover {
+  background: #e8f5e9;
+}
+
 .resize-handle {
   fill: #888;
   opacity: 0;
