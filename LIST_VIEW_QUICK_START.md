@@ -22,21 +22,21 @@
 
 ### Adding Child Nodes
 1. Find the parent node in the tree
-2. Click **"+ Child"** button on that row
+2. Click **"+ Direct Report"** button on that row
 3. An inline form appears below the parent (indented)
 4. Fill in Name, Title, and Role Level
 5. Click **"Add"** or press **Enter**
 6. New node appears with proper indentation
 
 ### Editing Nodes
-1. Click **"Edit"** button on any node row
+1. Click the **pencil icon** on any node row
 2. Fields become editable inline
 3. Modify Name, Title, or Role Level as needed
 4. Click **"Save"** or press **Enter** to confirm
 5. Click **"Cancel"** or press **Escape** to discard changes
 
 ### Deleting Nodes
-1. Click **"Delete"** button on any node row
+1. Click the **trash icon** on any node row
 2. Confirmation dialog appears
 3. Review the warning (all descendants will be deleted)
 4. Click **"Delete"** to confirm or **"Cancel"** to abort
@@ -108,7 +108,7 @@
 
 ### Efficient Data Entry
 1. Start with root nodes (executives)
-2. Use **"+ Child"** for rapid hierarchy building
+2. Use **"+ Direct Report"** for rapid hierarchy building
 3. Press **Enter** after filling each form
 4. Use **Expand All** to see full structure
 5. Use **Collapse All** to get overview
@@ -130,9 +130,9 @@
 ### Building New Organization
 ```
 1. Add Node (CEO)
-2. Click + Child on CEO
+2. Click + Direct Report on CEO
 3. Add VPs (repeat for each)
-4. Click + Child on VP
+4. Click + Direct Report on VP
 5. Add Directors (repeat for each)
 6. Continue down hierarchy
 7. Use Expand/Collapse to navigate
@@ -149,10 +149,10 @@
 
 ### Bulk Editing
 ```
-1. Click Edit on first node
+1. Click pencil icon on first node
 2. Modify fields
 3. Press Enter
-4. Click Edit on next node
+4. Click pencil icon on next node
 5. Repeat...
 ```
 

@@ -18,7 +18,7 @@ The List View is a new view mode in the Irons in Fire application that displays 
 - **Visual Hierarchy**: Indentation increases by 32px per level
 
 ### Inline Editing
-- **Quick Edit**: Click "Edit" button on any node to edit in place
+- **Quick Edit**: Click the **pencil icon** on any node to edit in place
 - **Editable Fields**:
   - Name (ownerName)
   - Title
@@ -30,8 +30,8 @@ The List View is a new view mode in the Irons in Fire application that displays 
 
 ### Node Creation
 - **Root Nodes**: Click "+ Add Node" in toolbar or the button in empty state
-- **Child Nodes**: Click "+ Child" button on any parent node
-- **Inline Creation**: New child nodes appear inline below their parent with proper indentation
+- **Child Nodes**: Click **"+ Direct Report"** button on any parent node
+- **Inline Creation**: New direct reports appear inline below their parent with proper indentation
 - **Form Fields**: Name, Title, and Role Level required
 - **Keyboard Shortcuts**: Enter to create, Escape to cancel
 
@@ -46,7 +46,7 @@ The List View is a new view mode in the Irons in Fire application that displays 
 
 ### Delete Operations
 - **Confirmation Dialog**: Warns about deleting node and all descendants
-- **Cascade Delete**: Automatically removes all child nodes and associated goals
+- **Trigger**: Click the **trash icon** on any node row
 - **Undo Support**: Can undo deletions using Ctrl+Z or toolbar button
 
 ### Toolbar Actions

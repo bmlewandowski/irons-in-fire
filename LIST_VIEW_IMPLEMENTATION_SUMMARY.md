@@ -36,7 +36,7 @@ Successfully implemented a new **List View** feature for the Irons in Fire MBO a
 - ✅ Column headers: Name, Title, Role Level, Actions
 
 ### 3. Inline Editing
-- ✅ Edit button on each node row
+- ✅ Pencil icon on each node row
 - ✅ Inline text inputs for Name and Title
 - ✅ Dropdown for Role Level with all 10 options
 - ✅ Conditional Custom Role input
@@ -47,7 +47,7 @@ Successfully implemented a new **List View** feature for the Irons in Fire MBO a
 
 ### 4. Node Creation
 - ✅ Root node creation via modal dialog
-- ✅ Child node creation inline below parent
+- ✅ Direct report creation inline below parent via **"+ Direct Report"** button
 - ✅ Automatic indentation based on parent level
 - ✅ Form validation (name and title required)
 - ✅ Keyboard shortcuts (Enter/Escape)
@@ -62,6 +62,7 @@ Successfully implemented a new **List View** feature for the Irons in Fire MBO a
 - ✅ Undo support for reparenting
 
 ### 6. Delete Operations
+- ✅ Trash icon per node row (visible on each row)
 - ✅ Confirmation modal
 - ✅ Cascade delete (removes all descendants)
 - ✅ Error handling with notifications
