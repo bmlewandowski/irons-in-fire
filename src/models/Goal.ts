@@ -1,3 +1,5 @@
+import type { ScaleConfig } from './RatingScale'
+
 /**
  * The type of a goal. Immutable after creation.
  * - Root: top-level objective owned by a node
@@ -32,6 +34,8 @@ export interface Goal {
   progress: number
   /** Required for Refined goals; references the source Root or Refined goal */
   sourceGoalId?: string
+  /** Optional rating scale configuration for progress measurement */
+  scaleConfig?: ScaleConfig
   /** ISO 8601 timestamp */
   createdAt: string
   /** ISO 8601 timestamp */

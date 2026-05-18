@@ -1,12 +1,14 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import { useNodeStore } from '@/stores/nodeStore'
 import { useGoalStore } from '@/stores/goalStore'
+import type { ScaleType } from '@/models/RatingScale'
 
 interface GoalModalState {
   nodeId: string
   description: string
   weight: string
   sourceGoalId: string
+  scaleType: ScaleType
   error: string
 }
 
@@ -43,12 +45,12 @@ export function useGoalModal() {
   )
 
   function openAddGoal(nodeId: string) {
-    goalModal.value = { nodeId, description: '', weight: '1', sourceGoalId: '', error: '' }
+    goalModal.value = { nodeId, description: '', weight: '1', sourceGoalId: '', scaleType: 'slider-1', error: '' }
   }
 
   async function saveGoal() {
     if (!goalModal.value) return
-    const { nodeId, description, weight, sourceGoalId } = goalModal.value
+    const { nodeId, description, weight, sourceGoalId, scaleType } = goalModal.value
     const weightNum = parseFloat(weight)
     const isRefined = sourceGoalId !== ''
 
@@ -61,6 +63,10 @@ export function useGoalModal() {
         status: 'Active',
         progress: 0,
         sourceGoalId: isRefined ? sourceGoalId : undefined,
+        scaleConfig: {
+          type: scaleType,
+          showPercentage: true,
+        },
       })
       goalModal.value = null
     } catch (err) {

@@ -613,6 +613,32 @@ defineExpose({
           Weight
           <input v-model="goalModal.weight" type="number" required min="0.01" max="1000" step="0.01" class="form-input" />
         </label>
+        <label class="form-label">
+          Measurement Scale
+          <select v-model="goalModal.scaleType" class="form-input">
+            <optgroup label="Slider">
+              <option value="slider-1">Slider (1% increments)</option>
+              <option value="slider-10">Slider (10% increments)</option>
+              <option value="slider-25">Slider (25% increments)</option>
+            </optgroup>
+            <optgroup label="Star Rating">
+              <option value="stars-3">3-Star Rating</option>
+              <option value="stars-4">4-Star Rating</option>
+              <option value="stars-5">5-Star Rating</option>
+              <option value="stars-10">10-Star Rating</option>
+            </optgroup>
+            <optgroup label="Binary">
+              <option value="thumbs">Thumbs Up/Down</option>
+              <option value="checkbox">Checkbox</option>
+              <option value="emoji">Happy/Sad Face</option>
+            </optgroup>
+            <optgroup label="Likert Scale">
+              <option value="likert-3">3-Point Scale</option>
+              <option value="likert-5">5-Point Scale</option>
+              <option value="likert-7">7-Point Scale</option>
+            </optgroup>
+          </select>
+        </label>
         <p v-if="goalModal.error" class="form-error">{{ goalModal.error }}</p>
         <div class="form-actions">
           <button type="submit" class="btn-primary">Create</button>

@@ -3,6 +3,8 @@ import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useGoalStore } from '@/stores/goalStore'
 import type { GoalStatus } from '@/models'
 import { progressColor } from '@/composables/useProgressColor'
+import { DEFAULT_SCALE_CONFIG } from '@/models/RatingScale'
+import RatingScale from './rating/RatingScale.vue'
 
 // ── Props & Emits ───────────────────────────────────────────────────────────
 const props = defineProps<{ goalId: string }>()
@@ -18,6 +20,9 @@ const goalStore = useGoalStore()
 
 // ── Derived state ───────────────────────────────────────────────────────────
 const goal = computed(() => goalStore.goals[props.goalId])
+
+// ── Scale config ────────────────────────────────────────────────────────────
+const scaleConfig = computed(() => goal.value?.scaleConfig ?? DEFAULT_SCALE_CONFIG)
 
 const sourceGoal = computed(() => {
   if (goal.value?.type !== 'Refined' || !goal.value.sourceGoalId) return undefined
@@ -157,14 +162,11 @@ function onCancelDelete() {
       </span>
     </div>
 
-    <!-- Progress input -->
-    <input
-      type="range"
-      min="0"
-      max="100"
-      :value="goal?.progress ?? 0"
-      :aria-label="`Set progress for ${goal?.description}`"
-      @change="emit('update-progress', Number(($event.target as HTMLInputElement).value))"
+    <!-- Progress input / Rating scale -->
+    <RatingScale
+      :model-value="goal?.progress ?? 0"
+      :config="scaleConfig"
+      @update:model-value="emit('update-progress', $event)"
     />
 
     <!-- Status select -->
