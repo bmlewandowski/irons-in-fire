@@ -201,12 +201,12 @@ describe('NodeComponent', () => {
     expect(wrapper.emitted('goals-toggled')).toEqual([['n-1']])
   })
 
-  it('emits add-child when action menu Add Child is clicked', async () => {
+  it('emits add-child when action menu Add Direct Report is clicked', async () => {
     nodeStore.$patch({ nodes: { 'n-1': makeNode() }, selectedNodeId: 'n-1' })
 
     const wrapper = mountNode('n-1')
     const buttons = wrapper.findAll('[role="menuitem"]')
-    const addChildBtn = buttons.find((b) => b.text() === 'Add Child')
+    const addChildBtn = buttons.find((b) => b.text() === 'Add Direct Report')
     await addChildBtn!.trigger('click')
 
     expect(wrapper.emitted('add-child')).toEqual([['n-1']])

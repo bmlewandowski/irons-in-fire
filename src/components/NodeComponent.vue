@@ -110,7 +110,7 @@ function onGoalIconLeave() {
 
     <!-- Action menu: only visible when this node is selected -->
     <div v-if="isSelected" class="action-menu" role="menu" :aria-label="`Actions for ${node?.title}`">
-      <button aria-label="Add child node" role="menuitem" @click="emit('add-child', props.nodeId)">Add Child</button>
+      <button aria-label="Add child node" role="menuitem" @click="emit('add-child', props.nodeId)">Add Direct Report</button>
       <button aria-label="Add goal" role="menuitem" @click="emit('add-goal', props.nodeId)">Add Goal</button>
       <button aria-label="Edit node" role="menuitem" @click="emit('edit', props.nodeId)">Edit</button>
       <button aria-label="Delete node" role="menuitem" @click="emit('delete', props.nodeId)">Delete</button>

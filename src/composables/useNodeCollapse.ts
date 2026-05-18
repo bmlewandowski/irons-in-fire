@@ -78,6 +78,18 @@ export function useNodeCollapse(
     }
   }
 
+  function expandAll() {
+    collapsedNodes.value = new Set()
+    nextTick(() => relayoutNodes())
+  }
+
+  function collapseAll() {
+    const allParentIds = Object.keys(nodeStore.nodes).filter(
+      (id) => nodeStore.childrenOf(id).length > 0
+    )
+    collapsedNodes.value = new Set(allParentIds)
+  }
+
   // ── Goal-panel collapse ────────────────────────────────────────────────
   const collapsedGoalNodes = ref<Set<string>>(new Set())
 
@@ -95,7 +107,12 @@ export function useNodeCollapse(
     nextTick(() => {
       const el = nodeWrapperEls.get(nodeId)
       if (!el) return
-      const newH = Math.max(MIN_NODE_HEIGHT, el.scrollHeight)
+      
+      // Measure the .node-component inside the wrapper (which has height: auto)
+      const nodeComponent = el.querySelector('.node-component') as HTMLElement
+      if (!nodeComponent) return
+      
+      const newH = Math.max(MIN_NODE_HEIGHT, nodeComponent.scrollHeight + 16) // +16 for wrapper padding
       const oldH = getNodeSize(nodeId).height
       const deltaH = newH - oldH
       if (deltaH === 0) return
@@ -139,13 +156,44 @@ export function useNodeCollapse(
       (id) => goalStore.goalsForNode(id).length > 0,
     )
     collapsedGoalNodes.value = new Set(nodesWithGoals)
-    for (const id of nodesWithGoals) resizeNodeToContent(id)
+    
+    // Clear sizes for nodes with goals so they'll be remeasured from DOM
+    nextTick(() => {
+      const newSizeMap = new Map(nodeSizes.value)
+      for (const id of nodesWithGoals) {
+        newSizeMap.delete(id)
+      }
+      nodeSizes.value = newSizeMap
+      
+      // Trigger relayout to recalculate positions with new (default) sizes
+      // Nodes will render at default height, then we measure and update
+      nextTick(() => {
+        for (const id of nodesWithGoals) {
+          resizeNodeToContent(id)
+        }
+      })
+    })
   }
 
   function expandAllGoals() {
     const was = [...collapsedGoalNodes.value]
     collapsedGoalNodes.value = new Set()
-    for (const id of was) resizeNodeToContent(id)
+    
+    // Clear sizes for nodes that were collapsed so they'll be remeasured
+    nextTick(() => {
+      const newSizeMap = new Map(nodeSizes.value)
+      for (const id of was) {
+        newSizeMap.delete(id)
+      }
+      nodeSizes.value = newSizeMap
+      
+      // Trigger remeasure after nodes render with goals visible
+      nextTick(() => {
+        for (const id of was) {
+          resizeNodeToContent(id)
+        }
+      })
+    })
   }
 
   return {
@@ -154,6 +202,8 @@ export function useNodeCollapse(
     hiddenNodeIds,
     visibleNodes,
     toggleCollapse,
+    expandAll,
+    collapseAll,
     setWrapperRef,
     resizeNodeToContent,
     onGoalsToggled,

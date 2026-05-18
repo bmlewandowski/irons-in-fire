@@ -50,9 +50,6 @@ const hasNodes = computed(() => Object.keys(nodeStore.nodes).length > 0)
         <button v-if="hasNodes" class="header-btn" aria-label="Zoom in" @click="orgChartRef?.zoomIn()">+ Zoom</button>
         <button v-if="hasNodes" class="header-btn" aria-label="Zoom out" @click="orgChartRef?.zoomOut()">− Zoom</button>
         <div v-if="hasNodes" class="header-divider"></div>
-        <button class="header-btn" aria-label="Add node" @click="orgChartRef?.openCreateRoot()">
-          + Add Node
-        </button>
         <button v-if="hasNodes" class="header-btn" aria-label="Clean up layout" @click="orgChartRef?.relayoutNodes()">
           ⬜ Clean Up
         </button>
@@ -66,19 +63,35 @@ const hasNodes = computed(() => Object.keys(nodeStore.nodes).length > 0)
         <button
           v-if="hasNodes"
           class="header-btn"
-          aria-label="Collapse all goal cards"
-          @click="orgChartRef?.collapseAllGoals()"
-        >Collapse All</button>
+          aria-label="Show goal cards on all nodes"
+          @click="orgChartRef?.expandAllGoals()"
+        >Show Goals</button>
         <button
           v-if="hasNodes"
           class="header-btn"
-          aria-label="Expand all goal cards"
-          @click="orgChartRef?.expandAllGoals()"
-        >Expand All</button>
+          aria-label="Hide goal cards on all nodes"
+          @click="orgChartRef?.collapseAllGoals()"
+        >Hide Goals</button>
         <button v-if="hasNodes" class="header-btn header-btn--muted" aria-label="Reset layout" @click="orgChartRef && (orgChartRef.showResetConfirm = true)">
           ↺ Reset Layout
         </button>
         <div class="header-divider"></div>
+        <button
+          v-if="hasNodes"
+          class="header-btn"
+          aria-label="Expand all nodes to show children"
+          @click="orgChartRef?.expandAll()"
+        >Expand All</button>
+        <button
+          v-if="hasNodes"
+          class="header-btn"
+          aria-label="Collapse all nodes to hide children"
+          @click="orgChartRef?.collapseAll()"
+        >Collapse All</button>
+        <div class="header-divider"></div>
+        <button class="header-btn" aria-label="Add node" @click="orgChartRef?.openCreateRoot()">
+          + Add Node
+        </button>
         <button class="header-btn" aria-label="Export data as JSON" @click="orgChartRef?.exportData()">
           ↓ Export
         </button>
@@ -89,9 +102,6 @@ const hasNodes = computed(() => Object.keys(nodeStore.nodes).length > 0)
 
       <!-- List view toolbar (right-justified) -->
       <div v-if="activeTab === 'listview'" class="header-toolbar">
-        <button class="header-btn" aria-label="Add node" @click="listViewRef?.openCreateRoot()">
-          + Add Node
-        </button>
         <button
           v-if="listViewRef?.canUndo"
           class="header-btn"
@@ -111,6 +121,9 @@ const hasNodes = computed(() => Object.keys(nodeStore.nodes).length > 0)
           @click="listViewRef?.collapseAll()"
         >Collapse All</button>
         <div class="header-divider"></div>
+        <button class="header-btn" aria-label="Add node" @click="listViewRef?.openCreateRoot()">
+          + Add Node
+        </button>
         <button class="header-btn" aria-label="Export data as JSON" @click="listViewRef?.exportData()">
           ↓ Export
         </button>
