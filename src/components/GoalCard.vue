@@ -101,6 +101,25 @@ function onCancelDelete() {
 
 <template>
   <div ref="cardRef" class="goal-card" :class="{ 'goal-card--active': isActive }" data-testid="goal-card" @click="activate">
+    <!-- Action icons: only shown when card is active and not editing -->
+    <div v-if="isActive && !isEditing" class="goal-card-actions">
+      <button class="btn-icon-edit" title="Edit" aria-label="Edit goal" @click.stop="startEdit">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+        </svg>
+      </button>
+      <button class="btn-icon-danger" title="Delete" aria-label="Delete goal" @click.stop="onDeleteClick">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="3 6 5 6 21 6"/>
+          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+          <path d="M10 11v6"/>
+          <path d="M14 11v6"/>
+          <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+        </svg>
+      </button>
+    </div>
+
     <!-- Source goal description (Refined goals only) -->
     <div v-if="goal?.type === 'Refined' && sourceGoal" class="source-description">
       <span class="source-label">Source:</span>
@@ -216,25 +235,6 @@ function onCancelDelete() {
       <option value="Refined">Refined</option>
       <option value="Complete">Complete</option>
     </select>
-
-    <!-- Action icons: only shown when card is active and not editing -->
-    <div v-if="isActive && !isEditing" class="goal-card-actions">
-      <button class="btn-icon-edit" title="Edit" aria-label="Edit goal" @click.stop="startEdit">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-        </svg>
-      </button>
-      <button class="btn-icon-danger" title="Delete" aria-label="Delete goal" @click.stop="onDeleteClick">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <polyline points="3 6 5 6 21 6"/>
-          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-          <path d="M10 11v6"/>
-          <path d="M14 11v6"/>
-          <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-        </svg>
-      </button>
-    </div>
   </div>
 
   <!-- Delete confirmation modal -->
@@ -254,6 +254,7 @@ function onCancelDelete() {
 
 <style scoped>
 .goal-card {
+  position: relative;
   border: 1px solid #e0e0e0;
   border-radius: 4px;
   padding: 8px;
@@ -348,10 +349,12 @@ button:hover {
 }
 
 .goal-card-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
   display: flex;
-  justify-content: flex-end;
   gap: 2px;
-  margin-top: 4px;
+  z-index: 1;
 }
 
 .btn-icon-edit,
