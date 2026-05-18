@@ -124,7 +124,10 @@ describe('GoalCard', () => {
       attachTo: document.body, // Required for Teleport
     })
 
-    const deleteBtn = wrapper.find('.btn-delete')
+    // Activate the card so the delete icon appears
+    await wrapper.find('.goal-card').trigger('click')
+
+    const deleteBtn = wrapper.find('.btn-icon-danger')
     await deleteBtn.trigger('click')
 
     // Modal should be in the body via Teleport
@@ -145,7 +148,8 @@ describe('GoalCard', () => {
     })
 
     // Open modal
-    await wrapper.find('.btn-delete').trigger('click')
+    await wrapper.find('.goal-card').trigger('click')
+    await wrapper.find('.btn-icon-danger').trigger('click')
 
     // Confirm deletion
     const confirmBtn = document.querySelector('.btn-confirm-delete') as HTMLButtonElement
@@ -169,7 +173,8 @@ describe('GoalCard', () => {
     })
 
     // Open modal
-    await wrapper.find('.btn-delete').trigger('click')
+    await wrapper.find('.goal-card').trigger('click')
+    await wrapper.find('.btn-icon-danger').trigger('click')
     expect(document.querySelector('.modal-backdrop')).toBeTruthy()
 
     // Cancel

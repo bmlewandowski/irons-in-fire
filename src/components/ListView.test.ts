@@ -257,8 +257,8 @@ describe('ListView', () => {
 
       const wrapper = mountListView()
 
-      const editBtn = wrapper.findAll('.btn-small').find((btn) => btn.text() === 'Edit')
-      expect(editBtn).toBeDefined()
+      const editBtn = wrapper.find('.btn-icon-edit')
+      expect(editBtn.exists()).toBe(true)
     })
 
     it('switches to edit mode when Edit button clicked', async () => {
@@ -268,7 +268,7 @@ describe('ListView', () => {
       const wrapper = mountListView()
 
       // Click edit button
-      const editBtn = wrapper.findAll('.btn-small').find((btn) => btn.text() === 'Edit')!
+      const editBtn = wrapper.find('.btn-icon-edit')
       await editBtn.trigger('click')
 
       // Should show input fields
@@ -287,7 +287,7 @@ describe('ListView', () => {
       const wrapper = mountListView()
 
       // Click edit button
-      const editBtn = wrapper.findAll('.btn-small').find((btn) => btn.text() === 'Edit')!
+      const editBtn = wrapper.find('.btn-icon-edit')
       await editBtn.trigger('click')
 
       // Check input values
@@ -307,7 +307,7 @@ describe('ListView', () => {
       const wrapper = mountListView()
 
       // Enter edit mode
-      const editBtn = wrapper.findAll('.btn-small').find((btn) => btn.text() === 'Edit')!
+      const editBtn = wrapper.find('.btn-icon-edit')
       await editBtn.trigger('click')
 
       // Modify values
@@ -332,7 +332,7 @@ describe('ListView', () => {
       const wrapper = mountListView()
 
       // Enter edit mode
-      const editBtn = wrapper.findAll('.btn-small').find((btn) => btn.text() === 'Edit')!
+      const editBtn = wrapper.find('.btn-icon-edit')
       await editBtn.trigger('click')
 
       expect(wrapper.find('.tree-input').exists()).toBe(true)
@@ -352,7 +352,7 @@ describe('ListView', () => {
       const wrapper = mountListView()
 
       // Enter edit mode
-      const editBtn = wrapper.findAll('.btn-small').find((btn) => btn.text() === 'Edit')!
+      const editBtn = wrapper.find('.btn-icon-edit')
       await editBtn.trigger('click')
 
       // Select Custom role
@@ -373,7 +373,7 @@ describe('ListView', () => {
       const wrapper = mountListView()
 
       // Enter edit mode and save
-      const editBtn = wrapper.findAll('.btn-small').find((btn) => btn.text() === 'Edit')!
+      const editBtn = wrapper.find('.btn-icon-edit')
       await editBtn.trigger('click')
 
       const saveBtn = wrapper.findAll('.btn-small').find((btn) => btn.text() === 'Save')!
@@ -398,7 +398,7 @@ describe('ListView', () => {
 
       const wrapper = mountListView()
 
-      const childBtn = wrapper.findAll('.btn-small').find((btn) => btn.text().includes('Child'))
+      const childBtn = wrapper.findAll('.btn-small').find((btn) => btn.text().includes('Direct Report'))
       expect(childBtn).toBeDefined()
     })
 
@@ -408,7 +408,7 @@ describe('ListView', () => {
 
       const wrapper = mountListView()
 
-      const childBtn = wrapper.findAll('.btn-small').find((btn) => btn.text().includes('Child'))!
+      const childBtn = wrapper.findAll('.btn-small').find((btn) => btn.text().includes('Direct Report'))!
       await childBtn.trigger('click')
 
       // Should show create form row
@@ -426,8 +426,8 @@ describe('ListView', () => {
 
       const wrapper = mountListView()
 
-      // Click "+ Child"
-      const childBtn = wrapper.findAll('.btn-small').find((btn) => btn.text().includes('Child'))!
+      // Click "+ Direct Report"
+      const childBtn = wrapper.findAll('.btn-small').find((btn) => btn.text().includes('Direct Report'))!
       await childBtn.trigger('click')
 
       // Fill form
@@ -464,8 +464,8 @@ describe('ListView', () => {
       // Nodes start expanded, child is already visible
       await wrapper.vm.$nextTick()
 
-      // Click "+ Child" on the child node (level 1)
-      const childBtns = wrapper.findAll('.btn-small').filter((btn) => btn.text().includes('Child'))
+      // Click "+ Direct Report" on the child node (level 1)
+      const childBtns = wrapper.findAll('.btn-small').filter((btn) => btn.text().includes('Direct Report'))
       await childBtns[1].trigger('click')
 
       // Create form should have margin for level 2 (64px)
@@ -542,8 +542,8 @@ describe('ListView', () => {
 
       const wrapper = mountListView()
 
-      const deleteBtn = wrapper.findAll('.btn-danger').find((btn) => btn.text() === 'Delete')
-      expect(deleteBtn).toBeDefined()
+      const deleteBtn = wrapper.find('.btn-icon-danger')
+      expect(deleteBtn.exists()).toBe(true)
     })
 
     it('shows confirmation dialog when Delete button clicked', async () => {
@@ -552,7 +552,7 @@ describe('ListView', () => {
 
       const wrapper = mountListView()
 
-      const deleteBtn = wrapper.findAll('.btn-danger').find((btn) => btn.text() === 'Delete')!
+      const deleteBtn = wrapper.find('.btn-icon-danger')
       await deleteBtn.trigger('click')
 
       const modal = wrapper.find('.modal-overlay')
@@ -569,7 +569,7 @@ describe('ListView', () => {
       const wrapper = mountListView()
 
       // Click Delete button on node row
-      const deleteBtn = wrapper.findAll('.btn-danger').find((btn) => btn.text() === 'Delete')!
+      const deleteBtn = wrapper.find('.btn-icon-danger')
       await deleteBtn.trigger('click')
 
       // Wait for modal
@@ -592,7 +592,7 @@ describe('ListView', () => {
       const wrapper = mountListView()
 
       // Click Delete
-      const deleteBtn = wrapper.findAll('.btn-danger').find((btn) => btn.text() === 'Delete')!
+      const deleteBtn = wrapper.find('.btn-icon-danger')
       await deleteBtn.trigger('click')
 
       expect(wrapper.find('.modal-overlay').exists()).toBe(true)
@@ -613,7 +613,7 @@ describe('ListView', () => {
       const wrapper = mountListView()
 
       // Click Delete button on node row
-      const deleteBtn = wrapper.findAll('.btn-danger').find((btn) => btn.text() === 'Delete')!
+      const deleteBtn = wrapper.find('.btn-icon-danger')
       await deleteBtn.trigger('click')
 
       // Wait for modal
@@ -643,7 +643,7 @@ describe('ListView', () => {
 
       // Click Delete on parent
       const rows = wrapper.findAll('.tree-row')
-      const deleteBtn = rows[0].findAll('.btn-danger').find((btn) => btn.text() === 'Delete')!
+      const deleteBtn = rows[0].find('.btn-icon-danger')
       await deleteBtn.trigger('click')
 
       // Should show promote option
@@ -664,7 +664,7 @@ describe('ListView', () => {
 
       // Click Delete on parent
       const rows = wrapper.findAll('.tree-row')
-      const deleteBtn = rows[0].findAll('.btn-danger').find((btn) => btn.text() === 'Delete')!
+      const deleteBtn = rows[0].find('.btn-icon-danger')
       await deleteBtn.trigger('click')
 
       // Click Promote Children & Delete
@@ -696,7 +696,7 @@ describe('ListView', () => {
       const wrapper = mountListView()
 
       // Enter edit mode
-      const editBtn = wrapper.findAll('.btn-small').find((btn) => btn.text() === 'Edit')!
+      const editBtn = wrapper.find('.btn-icon-edit')
       await editBtn.trigger('click')
 
       const row = wrapper.find('.tree-row')
@@ -926,7 +926,7 @@ describe('ListView', () => {
       const wrapper = mountListView()
 
       // Enter edit mode
-      const editBtn = wrapper.findAll('.btn-small').find((btn) => btn.text() === 'Edit')!
+      const editBtn = wrapper.find('.btn-icon-edit')
       await editBtn.trigger('click')
 
       // Press Enter on input
@@ -943,7 +943,7 @@ describe('ListView', () => {
       const wrapper = mountListView()
 
       // Enter edit mode
-      const editBtn = wrapper.findAll('.btn-small').find((btn) => btn.text() === 'Edit')!
+      const editBtn = wrapper.find('.btn-icon-edit')
       await editBtn.trigger('click')
 
       expect(wrapper.find('.tree-input').exists()).toBe(true)
@@ -966,7 +966,7 @@ describe('ListView', () => {
       const wrapper = mountListView()
 
       // Open create child form
-      const childBtn = wrapper.findAll('.btn-small').find((btn) => btn.text().includes('Child'))!
+      const childBtn = wrapper.findAll('.btn-small').find((btn) => btn.text().includes('Direct Report'))!
       await childBtn.trigger('click')
 
       // Fill form and press Enter
@@ -986,7 +986,7 @@ describe('ListView', () => {
       const wrapper = mountListView()
 
       // Open create child form
-      const childBtn = wrapper.findAll('.btn-small').find((btn) => btn.text().includes('Child'))!
+      const childBtn = wrapper.findAll('.btn-small').find((btn) => btn.text().includes('Direct Report'))!
       await childBtn.trigger('click')
 
       expect(wrapper.find('.tree-row--create').exists()).toBe(true)
