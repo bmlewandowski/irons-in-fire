@@ -130,6 +130,13 @@ A streamlined, tree-based interface optimized for **rapid organizational structu
 
 - **Attach goals to any node** — each goal has a description, weight, status (Active / Refined / Complete), and an optional link to a parent goal on an ancestor node.
 - **Goal types** — Root (top-level objective), Refined (child-node restatement linked to an ancestor goal), Sub_Task (leaf-level action item).
+- **Measurement scales** — choose how progress is measured when creating a goal:
+  - **Sliders** — continuous adjustment with 1%, 10%, or 25% increments
+  - **Star ratings** — 3, 4, 5, or 10-star quality ratings
+  - **Binary controls** — thumbs up/down, checkbox, or happy/sad emoji for yes/no completion
+  - **Likert scales** — 3, 5, or 7-point agreement scales (Strongly Disagree → Strongly Agree)
+  - All scales normalize to 0-100% for consistent progress tracking and rollup calculations
+  - Default is a 1% increment slider for maximum flexibility
 - **Weighted progress roll-up** — changing a leaf goal's progress automatically propagates upward through the hierarchy using a weighted average formula: $\text{progress} = \frac{\sum w_i \cdot p_i}{\sum w_i}$
 - **Complete shortcut** — setting a goal's status to *Complete* immediately forces its progress to 100 %.
 - **Goal panel toggle** — click the 🎯 icon on any node to show or hide its goal cards inline. The node resizes to fit the content, and any child nodes shift to maintain their original distance. Use **Collapse All** / **Expand All** in the toolbar to do this across all nodes at once.
