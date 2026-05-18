@@ -12,6 +12,7 @@ export type ErrorCode =
   | 'ADAPTER_ERROR'
   | 'CONFIGURATION_ERROR'
   | 'SANITIZATION_REJECTED'
+  | 'INVALID_SCALE_TYPE'
 
 /**
  * Structured error returned by all service-layer operations.

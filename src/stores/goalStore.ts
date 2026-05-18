@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { Goal } from '@/models'
 import type { GoalService } from '@/services/GoalService'
+import type { UpdateGoalInput } from '@/services/ValidationService'
 
 /**
  * Module-level reference to the GoalService instance.
@@ -65,6 +66,7 @@ export const useGoalStore = defineStore('goal', () => {
       weight: _input.weight,
       status: _input.status,
       sourceGoalId: _input.sourceGoalId,
+      scaleConfig: _input.scaleConfig,
     })
     if (!result.ok) throw new Error(result.error.message)
     return result.value
@@ -72,7 +74,7 @@ export const useGoalStore = defineStore('goal', () => {
 
   async function updateGoal(
     _id: string,
-    _input: Partial<Pick<Goal, 'description' | 'weight' | 'status'>>
+    _input: UpdateGoalInput
   ): Promise<Goal> {
     if (!_goalService) throw new Error('GoalService not wired')
     const result = await _goalService.updateGoal(_id, _input)

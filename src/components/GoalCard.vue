@@ -4,6 +4,7 @@ import { useGoalStore } from '@/stores/goalStore'
 import type { GoalStatus } from '@/models'
 import { progressColor } from '@/composables/useProgressColor'
 import { DEFAULT_SCALE_CONFIG } from '@/models/RatingScale'
+import type { ScaleType } from '@/models/RatingScale'
 import RatingScale from './rating/RatingScale.vue'
 
 // ── Props & Emits ───────────────────────────────────────────────────────────
@@ -52,10 +53,12 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
 const isEditing = ref(false)
 const editDescription = ref('')
 const editWeight = ref(1)
+const editScaleType = ref<ScaleType>('slider-1')
 
 function startEdit() {
   editDescription.value = goal.value?.description ?? ''
   editWeight.value = goal.value?.weight ?? 1
+  editScaleType.value = goal.value?.scaleConfig?.type ?? 'slider-1'
   isEditing.value = true
 }
 
@@ -65,6 +68,10 @@ async function saveEdit() {
   await goalStore.updateGoal(props.goalId, {
     description: desc,
     weight: editWeight.value,
+    scaleConfig: {
+      type: editScaleType.value,
+      showPercentage: true,
+    },
   })
   isEditing.value = false
 }
@@ -135,6 +142,36 @@ function onCancelDelete() {
           @keyup.enter="saveEdit"
           @keyup.escape="cancelEdit"
         />
+      </div>
+      <div class="goal-edit-scale-row">
+        <label class="goal-edit-label">Measurement Scale</label>
+        <select
+          v-model="editScaleType"
+          class="goal-edit-select"
+          @click.stop
+        >
+          <optgroup label="Slider">
+            <option value="slider-1">Slider (1% increments)</option>
+            <option value="slider-10">Slider (10% increments)</option>
+            <option value="slider-25">Slider (25% increments)</option>
+          </optgroup>
+          <optgroup label="Star Rating">
+            <option value="stars-3">3-Star Rating</option>
+            <option value="stars-4">4-Star Rating</option>
+            <option value="stars-5">5-Star Rating</option>
+            <option value="stars-10">10-Star Rating</option>
+          </optgroup>
+          <optgroup label="Binary">
+            <option value="thumbs">Thumbs Up/Down</option>
+            <option value="checkbox">Checkbox</option>
+            <option value="emoji">Happy/Sad Face</option>
+          </optgroup>
+          <optgroup label="Likert Scale">
+            <option value="likert-3">3-Point Scale</option>
+            <option value="likert-5">5-Point Scale</option>
+            <option value="likert-7">7-Point Scale</option>
+          </optgroup>
+        </select>
       </div>
       <div class="goal-edit-actions">
         <button class="btn-edit-save" @click.stop="saveEdit">Save</button>
@@ -373,10 +410,33 @@ button:hover {
   margin-bottom: 4px;
 }
 
+.goal-edit-scale-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
 .goal-edit-label {
   font-size: 0.75rem;
   color: #555;
   flex-shrink: 0;
+}
+
+.goal-edit-select {
+  flex: 1;
+  padding: 4px 6px;
+  border: 1px solid #1a73e8;
+  border-radius: 3px;
+  font-size: 0.75rem;
+  background: #fff;
+  color: #213547;
+  cursor: pointer;
+}
+
+.goal-edit-select:focus {
+  outline: none;
+  border-color: #1557b0;
 }
 
 .goal-edit-actions {

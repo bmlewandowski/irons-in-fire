@@ -624,3 +624,61 @@ describe('validateUpdateGoalInput', () => {
     }
   })
 })
+
+// validateUpdateGoalInput with scaleConfig
+
+describe('validateUpdateGoalInput — scaleConfig', () => {
+  it('accepts valid slider scale types', () => {
+    expect(validateUpdateGoalInput({ scaleConfig: { type: 'slider-1', showPercentage: true } })).toEqual([])
+    expect(validateUpdateGoalInput({ scaleConfig: { type: 'slider-10', showPercentage: false } })).toEqual([])
+    expect(validateUpdateGoalInput({ scaleConfig: { type: 'slider-25', showPercentage: true } })).toEqual([])
+  })
+
+  it('accepts valid star rating scale types', () => {
+    expect(validateUpdateGoalInput({ scaleConfig: { type: 'stars-3' } })).toEqual([])
+    expect(validateUpdateGoalInput({ scaleConfig: { type: 'stars-4' } })).toEqual([])
+    expect(validateUpdateGoalInput({ scaleConfig: { type: 'stars-5' } })).toEqual([])
+    expect(validateUpdateGoalInput({ scaleConfig: { type: 'stars-10' } })).toEqual([])
+  })
+
+  it('accepts valid binary scale types', () => {
+    expect(validateUpdateGoalInput({ scaleConfig: { type: 'thumbs' } })).toEqual([])
+    expect(validateUpdateGoalInput({ scaleConfig: { type: 'checkbox' } })).toEqual([])
+    expect(validateUpdateGoalInput({ scaleConfig: { type: 'emoji' } })).toEqual([])
+  })
+
+  it('accepts valid Likert scale types', () => {
+    expect(validateUpdateGoalInput({ scaleConfig: { type: 'likert-3' } })).toEqual([])
+    expect(validateUpdateGoalInput({ scaleConfig: { type: 'likert-5' } })).toEqual([])
+    expect(validateUpdateGoalInput({ scaleConfig: { type: 'likert-7' } })).toEqual([])
+  })
+
+  it('accepts custom labels for Likert scales', () => {
+    expect(validateUpdateGoalInput({ 
+      scaleConfig: { 
+        type: 'likert-5', 
+        labels: ['Very Bad', 'Bad', 'Neutral', 'Good', 'Very Good'] 
+      } 
+    })).toEqual([])
+  })
+
+  it('rejects invalid scale type', () => {
+    const errors = validateUpdateGoalInput({ 
+      scaleConfig: { type: 'invalid-type' as any } 
+    })
+    expect(errors).toHaveLength(1)
+    expect(errors[0].code).toBe('INVALID_SCALE_TYPE')
+    expect(errors[0].message).toContain('Invalid scale type')
+  })
+
+  it('combines scaleConfig validation with other field validations', () => {
+    const errors = validateUpdateGoalInput({
+      description: '', // Invalid - too short
+      weight: -1,      // Invalid - negative
+      scaleConfig: { type: 'invalid' as any }, // Invalid scale type
+    })
+    expect(errors.length).toBeGreaterThan(0)
+    // Should have errors for description, weight, and scaleConfig
+  })
+})
+

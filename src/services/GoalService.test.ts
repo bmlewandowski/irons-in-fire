@@ -568,3 +568,127 @@ describe('GoalService.setProgress', () => {
     expect(result.error.code).toBe('ADAPTER_ERROR')
   })
 })
+
+// ---------------------------------------------------------------------------
+// scaleConfig support
+// ---------------------------------------------------------------------------
+
+describe('GoalService — scaleConfig', () => {
+  it('createGoal persists scaleConfig when provided', async () => {
+    setActivePinia(createPinia())
+    const { adapter, service, nodeStore, goalStore } = makeServices()
+    const node = await seedNode(adapter, nodeStore, makeNode())
+
+    const result = await service.createGoal({
+      nodeId: node.id,
+      type: 'Root',
+      description: 'Test goal with custom scale',
+      weight: 1,
+      status: 'Active',
+      scaleConfig: {
+        type: 'stars-5',
+        showPercentage: true,
+      },
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+
+    expect(result.value.scaleConfig).toEqual({
+      type: 'stars-5',
+      showPercentage: true,
+    })
+    expect(goalStore.goals[result.value.id].scaleConfig).toEqual({
+      type: 'stars-5',
+      showPercentage: true,
+    })
+  })
+
+  it('createGoal works without scaleConfig (backward compatible)', async () => {
+    setActivePinia(createPinia())
+    const { adapter, service, nodeStore } = makeServices()
+    const node = await seedNode(adapter, nodeStore, makeNode())
+
+    const result = await service.createGoal({
+      nodeId: node.id,
+      type: 'Root',
+      description: 'Test goal without scale config',
+      weight: 1,
+      status: 'Active',
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    // scaleConfig should be undefined (uses default in UI)
+    expect(result.value.scaleConfig).toBeUndefined()
+  })
+
+  it('updateGoal can change scaleConfig', async () => {
+    setActivePinia(createPinia())
+    const { adapter, service, nodeStore, goalStore } = makeServices()
+    const node = await seedNode(adapter, nodeStore, makeNode())
+    const goal = await seedGoal(adapter, goalStore, {
+      nodeId: node.id,
+      scaleConfig: { type: 'slider-1', showPercentage: true },
+    })
+
+    const result = await service.updateGoal(goal.id, {
+      scaleConfig: { type: 'likert-5', showPercentage: false },
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+
+    expect(result.value.scaleConfig).toEqual({
+      type: 'likert-5',
+      showPercentage: false,
+    })
+    expect(goalStore.goals[goal.id].scaleConfig).toEqual({
+      type: 'likert-5',
+      showPercentage: false,
+    })
+  })
+
+  it('updateGoal validates scaleConfig', async () => {
+    setActivePinia(createPinia())
+    const { adapter, service, nodeStore, goalStore } = makeServices()
+    const node = await seedNode(adapter, nodeStore, makeNode())
+    const goal = await seedGoal(adapter, goalStore, { nodeId: node.id })
+
+    const result = await service.updateGoal(goal.id, {
+      scaleConfig: { type: 'invalid-type' as any },
+    })
+
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.error.code).toBe('INVALID_SCALE_TYPE')
+  })
+
+  it('updateGoal can update scaleConfig along with other fields', async () => {
+    setActivePinia(createPinia())
+    const { adapter, service, nodeStore, goalStore } = makeServices()
+    const node = await seedNode(adapter, nodeStore, makeNode())
+    const goal = await seedGoal(adapter, goalStore, {
+      nodeId: node.id,
+      description: 'Original description',
+      weight: 1,
+    })
+
+    const result = await service.updateGoal(goal.id, {
+      description: 'Updated description',
+      weight: 2,
+      scaleConfig: { type: 'thumbs', showPercentage: false },
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+
+    expect(result.value.description).toBe('Updated description')
+    expect(result.value.weight).toBe(2)
+    expect(result.value.scaleConfig).toEqual({
+      type: 'thumbs',
+      showPercentage: false,
+    })
+  })
+})
+

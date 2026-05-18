@@ -127,6 +127,7 @@ export class GoalService {
       status: input.status,
       progress: 0,
       ...(input.sourceGoalId !== undefined ? { sourceGoalId: input.sourceGoalId } : {}),
+      ...(input.scaleConfig !== undefined ? { scaleConfig: input.scaleConfig } : {}),
       createdAt: now,
       updatedAt: now,
     }
@@ -209,6 +210,10 @@ export class GoalService {
 
     if (input.status !== undefined) {
       patch.status = input.status
+    }
+
+    if (input.scaleConfig !== undefined) {
+      patch.scaleConfig = input.scaleConfig
     }
 
     // Step 6: if status === 'Complete', force progress to 100

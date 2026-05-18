@@ -1,6 +1,7 @@
 import type { AppError } from '@/models/AppError'
 import type { GoalStatus, GoalType } from '@/models/Goal'
 import type { RoleLevel } from '@/models/OrgNode'
+import type { ScaleConfig } from '@/models/RatingScale'
 import { sanitizer } from './Sanitizer'
 
 // ---------------------------------------------------------------------------
@@ -32,6 +33,7 @@ export interface CreateGoalInput {
   weight: number
   status: GoalStatus
   sourceGoalId?: string
+  scaleConfig?: ScaleConfig
 }
 
 /** Input for updating an existing Goal (all fields optional). */
@@ -40,6 +42,7 @@ export type UpdateGoalInput = Partial<{
   weight: number
   status: GoalStatus
   type: GoalType
+  scaleConfig: ScaleConfig
 }>
 
 // ---------------------------------------------------------------------------
@@ -372,5 +375,23 @@ export function validateUpdateGoalInput(input: UpdateGoalInput): AppError[] {
     if (typeError) errors.push(typeError)
   }
 
+  if (input.scaleConfig !== undefined) {
+    const scaleError = validateScaleConfig(input.scaleConfig)
+    if (scaleError) errors.push(scaleError)
+  }
+
   return errors
+}
+
+function validateScaleConfig(config: ScaleConfig): AppError | null {
+  const validTypes = ['slider-1', 'slider-10', 'slider-25', 'stars-3', 'stars-4', 'stars-5', 'stars-10', 'thumbs', 'checkbox', 'emoji', 'likert-3', 'likert-5', 'likert-7']
+  
+  if (!validTypes.includes(config.type)) {
+    return {
+      code: 'INVALID_SCALE_TYPE',
+      message: `Invalid scale type: ${config.type}`,
+    }
+  }
+
+  return null
 }
